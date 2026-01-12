@@ -25,9 +25,15 @@ export class Stage4 extends Phaser.Scene {
 		this.invincibleUntil = 0;
 
 		// ★デバッグ用：ここを true にすると無敵になります
-		this.isDebugInvincible = false;
+		this.isDebugInvincible = true;
 
-		// フェーズ（最後はeggのまま）
+		// ボス管理用
+		this.boss = null;
+
+		// ★追加：ボスが出現済みかどうかを管理するフラグ
+		this.bossSpawned = false;
+
+		// フェーズ
 		this.phase = 'gyusuji';
 		this.goalOpened = false;
 
@@ -56,6 +62,9 @@ export class Stage4 extends Phaser.Scene {
 		this.load.image('egg2', 'assets/egg2.png');
 		this.load.image('egg3', 'assets/egg3.png');
 
+		// ダイコンボス
+		this.load.image('daikon_boss', 'assets/daikon_boss.png');
+		
 		// 鍋（ゴール）
 		this.load.image('pot', 'assets/pot.png');
 	}
@@ -289,6 +298,12 @@ export class Stage4 extends Phaser.Scene {
 		g.fillCircle(4, 4, 4);
 		g.generateTexture('bullet', 8, 8);
 
+		// ボスの弾（白い粒：大根おろし）
+		g.clear();
+		g.fillStyle(0xffffff, 1); // 白
+		g.fillCircle(6, 6, 6);    // 少し大きめの丸
+		g.generateTexture('bossBullet', 12, 12);
+
 		g.destroy();
 	}
 
@@ -304,6 +319,11 @@ export class Stage4 extends Phaser.Scene {
 		else if (elapsed < 48000) this.phase = 'egg';
 		else {
 			this.phase = 'daikon';
+
+			// ボスがまだいなければ出現させる（1回だけ実行）
+			if (!this.bossSpawned) {
+				this.spawnBoss();
+			}
 		}
 
 		// --- ゴール出現判定 ---
@@ -445,6 +465,160 @@ export class Stage4 extends Phaser.Scene {
 	}
 
 	// -------------------------
+	// ボス出現（演出のみ・ダメージなし）
+	// -------------------------
+	spawnBoss() {
+		// 出現済みフラグを立てる
+		this.bossSpawned = true;
+
+		// ★追加：ここで無敵モードを自動解除！
+		this.isDebugInvincible = false;
+		console.log('無敵モード解除：ダメージが入ります');
+
+		const { width, height } = this.scale;
+
+		// --- 基本設定 ---
+		this.boss = this.physics.add.image(width + 150, height - 230, 'daikon_boss');
+		this.boss.setScale(0.6);
+		this.boss.setDepth(10);
+		this.boss.body.setAllowGravity(false);
+		this.boss.setImmovable(true);
+
+		// HP:20
+		this.boss.hp = 20;
+
+		// ボスの弾グループを作成
+		this.bossBullets = this.physics.add.group({
+			defaultKey: 'bossBullet',
+			maxSize: 30
+		});
+
+		// ボスの弾 vs プレイヤー の当たり判定
+		this.physics.add.overlap(this.player, this.bossBullets, (player, bullet) => {
+			if (!bullet.active) return;
+			bullet.destroy();
+			
+			// プレイヤーのダメージ処理（既存のメソッドを呼ぶ）
+			this.hitObstacle(null); 
+		});
+
+		// --- 登場演出 ---
+		// 画面右の定位置（ホームポジション）
+		const homeX = width - 300; 
+		// 攻撃時に迫ってくる位置（だいぶ左まで来る）
+		const attackX = width - 450; 
+
+		this.tweens.add({
+			targets: this.boss,
+			x: homeX,
+			duration: 2500,
+			ease: 'Power2',
+			onComplete: () => {
+				// --- 登場後の動き（2つの動きを同時に開始） ---
+
+				// 動き1：縦に不気味にフワフワ（これはずっと続く）
+				this.tweens.add({
+					targets: this.boss,
+					y: this.boss.y + 20,
+					duration: 1800,
+					yoyo: true,
+					repeat: -1,
+					ease: 'Sine.easeInOut'
+				});
+
+				// 動き2：プレイヤーへの突撃ループ
+				this.tweens.add({
+					targets: this.boss,
+					x: attackX,     // ここまで迫ってくる
+					duration: 3000, // 3秒かけてじわじわ迫る
+					ease: 'Sine.easeInOut',
+					yoyo: true,     // 自動で戻る
+					repeat: -1,     // 無限ループ
+					hold: 1000,     // 迫った位置で1秒止まる（威圧）
+					loopDelay: 2000 // 定位置に戻ったら2秒休む
+				});
+
+				// 動き3「大根おろしショット」発射タイマー
+				// 2秒ごとに3Way弾を撃ってくる
+				this.bossAttackEvent = this.time.addEvent({
+					delay: 2000, // 2秒間隔
+					loop: true,
+					callback: () => {
+						// ボスが生きていて、かつゲーム中でなければ撃たない
+						if (!this.boss || !this.boss.active || this.isGameOver) return;
+						this.fireBossBullets();
+					}
+				});				
+			}
+		});
+
+		// メッセージ
+		if (this.messageText) {
+			this.messageText.setText('ダイコンBOSS：私を倒してみろ');
+		}
+
+		// --- 当たり判定関係 ---
+
+		// 1. プレイヤーとの接触（即死）
+		this.physics.add.overlap(this.player, this.boss, () => {
+			if (this.isGameOver) return;
+			this.player.setTint(0xff0000);
+			this.gameOver('ダイコンの圧倒的圧力に屈した…');
+		});
+
+		// 2. 弾との接触（ダメージ）
+		this.physics.add.overlap(this.bullets, this.boss, (boss, bullet) => {
+			if (!bullet.active || !boss.active) return;
+
+			bullet.destroy();
+			boss.hp -= 1;
+
+			// ヒット演出
+			boss.setTint(0xffaaaa);
+			this.time.delayedCall(100, () => {
+				if (boss.active) boss.clearTint();
+			});
+
+			if (boss.hp <= 0) {
+				this.defeatBoss();
+			}
+		});
+	}
+
+	// -------------------------
+	// ボスの攻撃（3Way弾）
+	// -------------------------
+	fireBossBullets() {
+		if (!this.boss || !this.boss.active) return;
+
+		// 弾の発射位置（ボスの中心より少し左）
+		const x = this.boss.x - 60;
+		const y = this.boss.y;
+
+		// 3発発射（上・左・下）
+		const angles = [160, 180, 200]; // 角度
+		const speed = 300; // 弾の速さ
+
+		angles.forEach(angle => {
+			const bullet = this.bossBullets.get(x, y);
+			if (bullet) {
+				bullet.setActive(true).setVisible(true);
+				bullet.body.enable = true;
+				bullet.body.setAllowGravity(false); // 重力なし
+				
+				// 角度をベクトルに変換して飛ばす
+				const rad = Phaser.Math.DegToRad(angle);
+				this.physics.velocityFromRotation(rad, speed, bullet.body.velocity);
+				
+				// 3秒で消す
+				this.time.delayedCall(3000, () => {
+					if (bullet.active) bullet.destroy();
+				});
+			}
+		});
+	}
+
+	// -------------------------
 	// シューティング
 	// -------------------------
 	shootBullet() {
@@ -510,6 +684,32 @@ export class Stage4 extends Phaser.Scene {
 	}
 
 	// -------------------------
+	// ボス撃破時の処理
+	// -------------------------
+	defeatBoss() {
+		// 爆発エフェクトの代わりに、少し揺らしてから消すなどの演出も可能ですが
+		// まずはシンプルに消滅させます
+		
+		if (this.boss) {
+			this.boss.destroy();
+			this.boss = null; // 変数も空にしておく
+		}
+
+		// メッセージの更新
+		// もし鍋（ゴール）が既に出ているなら「鍋へジャンプ！」に書き換え
+		if (this.goalOpened) {
+			if (this.messageText) this.messageText.setText('鍋へジャンプ！');
+		} else {
+			// まだ鍋が出ていない場合（60秒未満で倒した場合）
+			// 鍋が出るまで待機中のメッセージにする
+			if (this.messageText) this.messageText.setText('鍋の出現を待て…');
+		}
+
+		// (オプション) 倒したときの音や画面揺れを入れるならここ
+		this.cameras.main.shake(150, 0.01);
+	}
+
+	// -------------------------
 	// ゴール解放（鍋へジャンプ）
 	// -------------------------
 	openGoal() {
@@ -518,11 +718,18 @@ export class Stage4 extends Phaser.Scene {
 		// 敵の追加を止める
 		if (this.spawnEvent) this.spawnEvent.remove(false);
 
-		// セリフ切り替え
-		if (this.messageText) this.messageText.setText('鍋へジャンプ！');
+		// ★修正：ボスが生きていたら「鍋へジャンプ」のメッセージを出さない
+		// （ボスがいない時だけメッセージを出す）
+		if (!this.boss || !this.boss.active) {
+			if (this.messageText) this.messageText.setText('鍋へジャンプ！');
+		}
 
-		// 鍋表示
+		// 鍋表示（ボスがいる時でも、鍋自体は見えていたほうが「守ってる感」が出ます）
 		this.pot.setVisible(true);
+		
+		// ★補足：もし「ボスを倒すまでゴール判定も無効にしたい」場合は
+		// ここも if (!this.boss) { ... } で囲ってください。
+		// 今はテスト用に「隙間をくぐればクリアできる」状態にしておきます。
 		this.goalZone.body.enable = true;
 	}
 
