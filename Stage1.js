@@ -1,8 +1,17 @@
-export class Stage1 extends Phaser.Scene {
+import { BaseStage } from './BaseStage.js';
+
+export class Stage1 extends BaseStage {
+
+	// *******************
+	// コンストラクタ
+	// *******************
 	constructor() {
 		super('Stage1');
 	}
 
+	// *******************
+	// preload
+	// *******************
 	preload() {
 		const basePath = 'assets/';
 
@@ -27,6 +36,9 @@ export class Stage1 extends Phaser.Scene {
 		this.load.image('hero_right', basePath + 'hero_right.png');
 	}
 
+	// *******************
+	// create
+	// *******************
 	create() {
 		this.showStageBanner('Stage1：畑から脱出');
 
@@ -137,34 +149,9 @@ export class Stage1 extends Phaser.Scene {
 		this.goalLine = this.add.rectangle(400, 40, 800, 20, 0x00aa00);
 	}
 
-	// 指定位置 (x, y) にプレイヤーが来たとき、石にぶつかるか？
-	collidesWithTraps(x, y) {
-		const size = this.playerSize || 40;
-		const half = size / 2;
-
-		// 「その位置にプレイヤーがいたとき」の当たり判定用の四角
-		const playerRect = new Phaser.Geom.Rectangle(
-			x - half,
-			y - half,
-			size,
-			size
-		);
-
-		// すべての石（this.traps）とぶつかるかチェック
-		for (const trap of this.traps) {
-			if (!trap) continue;
-
-			if (Phaser.Geom.Intersects.RectangleToRectangle(
-				playerRect,
-				trap.getBounds()
-			)) {
-				return true; // どれか1つでも当たった
-			}
-		}
-
-		return false; // どの石とも当たっていない
-	}
-	
+	// *******************
+	// update
+	// *******************
 	update(time, delta) {
 		// 共通キー処理
 		this.updateCommonKeys();
@@ -242,7 +229,6 @@ export class Stage1 extends Phaser.Scene {
 		const playerRect = this.getPlayerHitbox();
 
 		// --- ▼敵の移動＆当たり判定 ---
-		// Enemies update & collision
 		for (let i = this.enemies.length - 1; i >= 0; i--) {
 			const enemy = this.enemies[i];
 			enemy.x += enemy.vx * dt;
@@ -257,19 +243,54 @@ export class Stage1 extends Phaser.Scene {
 			// 敵側も少し小さめの当たり判定にする
 			const enemyRect = this.getEnemyHitbox(enemy);
 
+			const damageEnabled = false; // 無敵モード用（★デバッグ用）
+
 			if (Phaser.Geom.Intersects.RectangleToRectangle(
 				enemyRect,
 				playerRect
 			)) {
-				this.onHitEnemy();
-				return;
+				if (damageEnabled) {
+					this.onHitEnemy();
+					return;
+				}
 			}
 		}
 
 		// --- ゴール判定 ---
 		if (this.player.y < 100) {
 			this.onReachGoal();
-		}        
+		}
+	}
+
+	// ===================================
+	// ヘルパーメソッド群
+	// ===================================
+	// 指定位置 (x, y) にプレイヤーが来たとき、石にぶつかるかどうか
+	collidesWithTraps(x, y) {
+		const size = this.playerSize || 40;
+		const half = size / 2;
+
+		// 「その位置にプレイヤーがいたとき」の当たり判定用の四角
+		const playerRect = new Phaser.Geom.Rectangle(
+			x - half,
+			y - half,
+			size,
+			size
+		);
+
+		// すべての石（this.traps）とぶつかるかチェック
+		for (const trap of this.traps) {
+			if (!trap) continue;
+
+			if (Phaser.Geom.Intersects.RectangleToRectangle(
+				playerRect,
+				trap.getBounds()
+			)) {
+				return true; // どれか1つでも当たった
+			}
+		}
+
+		return false; // どの石とも当たっていない
 	}
 
 	// 地層
@@ -339,34 +360,25 @@ export class Stage1 extends Phaser.Scene {
 		);
 	}
 
-	// 敵に当たった
+	// ゲームオーバー（敵に当たったとき）
 	onHitEnemy() {
 		if (this.gameOver || this.cleared) return;
 
 		this.gameOver = true;
 
-		this.add.text(260, 260, 'GAME OVER', {
-			fontSize: '48px',
-			color: '#000',
-		});
-
-		this.time.delayedCall(1500, () => {
-			this.scene.restart();
-		});
+		this.showGameOver();
 	}
 
-	// ゴール到達
+	// クリア
 	onReachGoal() {
 		if (this.gameOver || this.cleared) return;
 
 		this.cleared = true;
 
-		this.add.text(220, 260, 'STAGE 1 CLEAR!', {
-			fontSize: '48px',
-			color: '#000',
-		});
+		// クリア表示
+		this.showGameClear(1);
 
-		this.time.delayedCall(2000, () => {
+		this.time.delayedCall(3000, () => {
 			this.scene.start('Stage2');
 		});
 	}
@@ -402,66 +414,4 @@ export class Stage1 extends Phaser.Scene {
 			h
 		);
 	}
-
-	//--------------------------------------------
-	// 共通部品（あとで外部モジュール化しても良い）
-	//--------------------------------------------
-	// ステージ開始バナー表示
-	showStageBanner(text) {
-		const { width } = this.scale;
-		const t = this.add.text(width / 2, 60, text, {
-			fontFamily: 'sans-serif',
-			fontSize: '24px',
-			color: '#ffffff',
-			stroke: '#000000',
-			strokeThickness: 6,
-		}).setOrigin(0.5).setDepth(999);
-
-		this.tweens.add({
-			targets: t,
-			alpha: 0,
-			duration: 600,
-			delay: 1200,
-			onComplete: () => t.destroy(),
-		});
-	}
-
-	// 操作説明表示
-	showControls(text) {
-		if (this.controlsText) this.controlsText.destroy();
-
-		this.controlsText = this.add.text(16, 12, text, {
-			fontFamily: 'sans-serif',
-			fontSize: '18px',
-			color: '#000',
-			backgroundColor: '#ffffffcc',
-			padding: { left: 10, right: 10, top: 6, bottom: 6 },
-		}).setDepth(1000);
-
-		this.controlsText.setScrollFactor(0); // カメラが動いても固定
-	}
-
-	// 共通キー設定（R: リスタート、T: タイトルへ）
-	setupCommonKeys() {
-		this.keyR = this.input.keyboard.addKey(
-			Phaser.Input.Keyboard.KeyCodes.R
-		);
-		this.keyT = this.input.keyboard.addKey(
-			Phaser.Input.Keyboard.KeyCodes.T
-		);
-	}
-
-	updateCommonKeys() {
-		if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
-			this.scene.restart();
-		}
-		if (Phaser.Input.Keyboard.JustDown(this.keyT)) {
-			this.goToTitle();
-		}
-	}
-
-	goToTitle() {
-		// TitleScene.js で設定している key: 'Title' に合わせる
-		this.scene.start('Title');
-	}    
 }

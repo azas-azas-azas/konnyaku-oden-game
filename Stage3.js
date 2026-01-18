@@ -1,14 +1,25 @@
-// Stage3.js
-export class Stage3 extends Phaser.Scene {
+import { BaseStage } from './BaseStage.js';
+
+export class Stage3 extends BaseStage {
+
+	// *******************
+	// コンストラクタ
+	// *******************
 	constructor() {
 		super({ key: 'Stage3' });
 	}
 
+	// *******************
+	// preload
+	// *******************
 	preload() {
 		this.load.image('hero_konnyaku', 'assets/hero_processed.png');
 		this.load.image('basket', 'assets/basket.png'); // すでにあるなら確認用
 	}
 
+	// *******************
+	// create
+	// *******************
 	create() {
 		this.showStageBanner('Stage3：買い物カゴを避けろ');
 
@@ -36,7 +47,7 @@ export class Stage3 extends Phaser.Scene {
 
 		// ===== 主人公（コンニャク） =====
 		// キー 'hero_konnyaku' は仮
-		this.hero = this.physics.add.sprite(120, groundY - 80, 'hero_konnyaku');
+		this.hero = this.physics.add.sprite(120, groundY - 50, 'hero_konnyaku');
 		this.hero.setScale(0.03);
 		this.hero.setCollideWorldBounds(true);
 		this.hero.body.setSize(this.hero.width * 0.7, this.hero.height * 0.85, true);
@@ -52,7 +63,7 @@ export class Stage3 extends Phaser.Scene {
 		// 主人公に当たったらゲームオーバー
 		this.physics.add.overlap(this.hero, this.baskets, () => {
 			// 無敵モードなら何もしないで帰る
-			if (this.isInvincible) {
+			if (!this.damageEnabled) {
 				return;
 			}
 			this.handleGameOver();
@@ -76,81 +87,12 @@ export class Stage3 extends Phaser.Scene {
 			callback: () => this.spawnBasket(),
 		});
 
-		// クリック/タップでリトライ（GameOver時） / 次へ（Clear時）
-		this.input.on('pointerdown', () => {
-		  if (this.isGameOver) this.scene.restart();
-		  if (this.isCleared) this.scene.start('Stage4'); // Stage4が無ければ restart でもOK
-		});
-
-		// ===== デバッグ用：Iキーで無敵切り替え =====
-		this.isInvincible = false; // 初期状態は無敵じゃない
-
-/*		this.input.keyboard.on('keydown-I', () => {
-			this.isInvincible = !this.isInvincible;
-			
-			if (this.isInvincible) {
-				this.hero.setTint(0xff0000); // 無敵中は赤くする
-				console.log('無敵モード: ON');
-			} else {
-				this.hero.clearTint();       // 元の色に戻す
-				console.log('無敵モード: OFF');
-			}
-		});	*/
+		this.damageEnabled = false; // 無敵モード用（★デバッグ用）
 	}
 
-	spawnBasket() {
-		if (this.isGameOver || this.isCleared) return;
-
-		// 画面上からランダムXで落下
-		const x = Phaser.Math.Between(60, 740);
-		const y = -40;
-
-		// キー 'basket' は仮
-		const basket = this.physics.add.sprite(x, y, 'basket');
-		basket.setScale(0.06);
-		this.baskets.add(basket);
-
-		// 経過時間（ms）
-		const elapsed = this.time.now - this.startTime;
-
-		let vy;
-
-		// ★ 30秒まではゆっくり
-		if (elapsed < 30_000) {
-			vy = Phaser.Math.Between(300, 600);
-		} else {
-			// ★ それ以降は元の速度
-			vy = Phaser.Math.Between(500, 900);
-		}
-
-		basket.setVelocity(0, vy);
-
-		// ほんの少し横ブレ（面白さUP）
-		const vx = Phaser.Math.Between(-40, 40);
-		basket.setVelocityX(vx);
-
-		basket.setCollideWorldBounds(false);
-
-		// 地面に当たったら消す（重くならないように）
-		this.physics.add.collider(basket, this.ground, () => {
-			basket.destroy();
-		});
-
-		// 画面外に落ちたら消す
-		basket.setData('bornAt', this.time.now);
-
-		// 出現頻度を徐々に上げる（イベント自体を張り替える）
-		this.spawnDelay = Math.max(this.spawnDelayMin, this.spawnDelay - this.spawnStep);
-		if (this.spawnEvent && this.spawnEvent.delay !== this.spawnDelay) {
-			this.spawnEvent.remove(false);
-			this.spawnEvent = this.time.addEvent({
-				delay: this.spawnDelay,
-				loop: true,
-				callback: () => this.spawnBasket(),
-			});
-		}
-	}
-
+	// *******************
+	// update
+	// *******************
 	update(time, delta) {
 		// 共通キー処理
 		this.updateCommonKeys();
@@ -186,6 +128,64 @@ export class Stage3 extends Phaser.Scene {
 		});
 	}
 
+	// ===================================
+	// ヘルパーメソッド群
+	// ===================================
+	// 買い物かご出現
+	spawnBasket() {
+		if (this.isGameOver || this.isCleared) return;
+
+		// 画面上からランダムXで落下
+		const x = Phaser.Math.Between(60, 740);
+		const y = -40;
+
+		// キー 'basket' は仮
+		const basket = this.physics.add.sprite(x, y, 'basket');
+		basket.setScale(0.06);
+		this.baskets.add(basket);
+
+		// 経過時間（ms）
+		const elapsed = this.time.now - this.startTime;
+
+		let vy;
+
+		// 30秒まではゆっくり
+		if (elapsed < 30_000) {
+			vy = Phaser.Math.Between(300, 600);
+		} else {
+			// それ以降は元の速度
+			vy = Phaser.Math.Between(500, 900);
+		}
+
+		basket.setVelocity(0, vy);
+
+		// ほんの少し横ブレ（面白さUP）
+		const vx = Phaser.Math.Between(-40, 40);
+		basket.setVelocityX(vx);
+
+		basket.setCollideWorldBounds(false);
+
+		// 地面に当たったら消す（重くならないように）
+		this.physics.add.collider(basket, this.ground, () => {
+			basket.destroy();
+		});
+
+		// 画面外に落ちたら消す
+		basket.setData('bornAt', this.time.now);
+
+		// 出現頻度を徐々に上げる（イベント自体を張り替える）
+		this.spawnDelay = Math.max(this.spawnDelayMin, this.spawnDelay - this.spawnStep);
+		if (this.spawnEvent && this.spawnEvent.delay !== this.spawnDelay) {
+			this.spawnEvent.remove(false);
+			this.spawnEvent = this.time.addEvent({
+				delay: this.spawnDelay,
+				loop: true,
+				callback: () => this.spawnBasket(),
+			});
+		}
+	}
+
+	// ゲームオーバー処理
 	handleGameOver() {
 		if (this.isGameOver || this.isCleared) return;
 		this.isGameOver = true;
@@ -196,19 +196,11 @@ export class Stage3 extends Phaser.Scene {
 		// 物理停止
 		this.physics.pause();
 
-		// 表示
-		this.add.text(400, 260, 'GAME OVER', {
-			fontSize: '64px',
-			color: '#000',
-			fontStyle: 'bold',
-		}).setOrigin(0.5);
-
-		this.add.text(400, 320, 'クリック / タップ / Rキーでリトライ', {
-			fontSize: '20px',
-			color: '#000',
-		}).setOrigin(0.5);
+		// 画面中央にGAME OVER表示
+		this.showGameOver();
 	}
 
+	// ステージクリア処理
 	handleStageClear() {
 		if (this.isGameOver || this.isCleared) return;
 		this.isCleared = true;
@@ -217,82 +209,10 @@ export class Stage3 extends Phaser.Scene {
 		this.physics.pause();
 
 		// クリア表示
-		const { width, height } = this.scale;
-		this.add.text(width / 2, height / 2 - 20, 'CLEAR!', {
-			fontSize: '48px',
-			color: '#000',
-			fontStyle: 'bold'
-		}).setOrigin(0.5);
+		this.showGameClear(3);
 
-		this.add.text(width / 2, height / 2 + 20, 'クリック / タップで次へ', {
-			fontSize: '20px',
-			color: '#000'
-		}).setOrigin(0.5);
-
-		this.time.delayedCall(2000, () => {
+		this.time.delayedCall(3000, () => {
 			this.scene.start('Stage4');
 		});
 	}
-
-	//--------------------------------------------
-	// 共通部品（あとで外部モジュール化しても良い）
-	//--------------------------------------------
-	// ステージ開始バナー表示
-	showStageBanner(text) {
-		const { width } = this.scale;
-		const t = this.add.text(width / 2, 60, text, {
-			fontFamily: 'sans-serif',
-			fontSize: '24px',
-			color: '#ffffff',
-			stroke: '#000000',
-			strokeThickness: 6,
-		}).setOrigin(0.5).setDepth(999);
-
-		this.tweens.add({
-			targets: t,
-			alpha: 0,
-			duration: 600,
-			delay: 1200,
-			onComplete: () => t.destroy(),
-		});
-	}
-
-	// 操作説明表示
-	showControls(text) {
-		if (this.controlsText) this.controlsText.destroy();
-
-		this.controlsText = this.add.text(16, 12, text, {
-			fontFamily: 'sans-serif',
-			fontSize: '18px',
-			color: '#000',
-			backgroundColor: '#ffffffcc',
-			padding: { left: 10, right: 10, top: 6, bottom: 6 },
-		}).setDepth(1000);
-
-		this.controlsText.setScrollFactor(0); // カメラが動いても固定
-	}
-
-	// 共通キー設定（R: リスタート、T: タイトルへ）
-	setupCommonKeys() {
-		this.keyR = this.input.keyboard.addKey(
-			Phaser.Input.Keyboard.KeyCodes.R
-		);
-		this.keyT = this.input.keyboard.addKey(
-			Phaser.Input.Keyboard.KeyCodes.T
-		);
-	}
-
-	updateCommonKeys() {
-		if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
-			this.scene.restart();
-		}
-		if (Phaser.Input.Keyboard.JustDown(this.keyT)) {
-			this.goToTitle();
-		}
-	}
-
-	goToTitle() {
-		// TitleScene.js で設定している key: 'Title' に合わせる
-		this.scene.start('Title');
-	}    
 }
