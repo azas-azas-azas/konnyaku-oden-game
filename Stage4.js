@@ -25,12 +25,12 @@ export class Stage4 extends Phaser.Scene {
 		this.invincibleUntil = 0;
 
 		// ★デバッグ用：ここを true にすると無敵になります
-		this.isDebugInvincible = true;
+		this.isDebugInvincible = false;
 
 		// ボス管理用
 		this.boss = null;
 
-		// ★追加：ボスが出現済みかどうかを管理するフラグ
+		// ボスが出現済みかどうかを管理するフラグ
 		this.bossSpawned = false;
 
 		// フェーズ
@@ -70,6 +70,17 @@ export class Stage4 extends Phaser.Scene {
 	}
 
 	create() {
+		this.showStageBanner('Stage4：先輩具材の試練');
+
+		// 青空っぽい色
+		this.cameras.main.setBackgroundColor('#87ceeb');
+
+		// 操作説明表示
+		this.showControls('←→ 移動 / R リスタート / T タイトル　【おでん鍋を目指せ！】');
+
+		// 共通キー設定
+		this.setupCommonKeys();
+
 		const { width, height } = this.scale;
 
 		// 背景
@@ -91,6 +102,7 @@ export class Stage4 extends Phaser.Scene {
 		this.player.setOrigin(0.5, 1);
 		this.player.setDepth(20); // 鍋より前
 		this.player.body.setSize(this.player.width, this.player.height);
+		this.player.setGravityY(1000);
 
 		this.player.setCollideWorldBounds(true);
 		this.player.setBounce(0);
@@ -180,7 +192,7 @@ export class Stage4 extends Phaser.Scene {
 
 		// --- 鍋の「中だけ」に当たり判定（見えないZone） ---
 		
-		// ★変更点：先にサイズと位置を計算してしまう
+		// 先にサイズと位置を計算してしまう
 		const zoneW = this.pot.displayWidth * 0.32;
 		const zoneH = this.pot.displayHeight * 0.10;
 
@@ -188,14 +200,13 @@ export class Stage4 extends Phaser.Scene {
 		const zoneX = this.pot.x + this.pot.displayWidth * 0.02;
 		const zoneY = this.pot.y - this.pot.displayHeight * 0.35;
 
-		// ★変更点：計算した位置(zoneX, zoneY)とサイズ(zoneW, zoneH)を指定して生成する
+		// 計算した位置(zoneX, zoneY)とサイズ(zoneW, zoneH)を指定して生成する
 		this.goalZone = this.add.zone(zoneX, zoneY, zoneW, zoneH);
 		
-		// Static Bodyとして物理演算に追加（これで位置ズレしません）
+		// Static Bodyとして物理演算に追加
 		this.physics.add.existing(this.goalZone, true);
 		
 		this.goalZone.setVisible(false);
-		// this.goalZone.body.enable = false; // 最初は無効にしておく（必要なら）
 
 		// 「中に入ったら」判定
 		this.physics.add.overlap(this.player, this.goalZone, (player, zone) => {
@@ -212,15 +223,23 @@ export class Stage4 extends Phaser.Scene {
 		// ワールド外に落ちたらゲームオーバー（鍋に落下＝失敗）
 		this.fallLimitY = height + 80;
 
-		// 開始メッセージ
-		this.messageText.setText('Stage4：先輩具材の試練');
+		// 説明テキスト
+		this.infoText = this.add.text(
+			20,
+			50,
+			'↑でジャンプ（3段ジャンプまで可）。Spaceで弾発射！',
+			{ fontSize: '16px', color: '#000' , padding: { top: 6, bottom: 2 }}
+		 );
 
 		// デバッグ表示（必要ならtrue/falseで切り替え）
-		this.physics.world.createDebugGraphic();
+//		this.physics.world.createDebugGraphic();
 	}
 
 	update() {
-		// ★追加：ゲームオーバーなら更新処理を一切しない
+		// 共通キー更新
+		this.updateCommonKeys();
+
+		// ゲームオーバーなら更新処理を一切しない
 		if (this.isGameOver) return;
 
 		const { width, height } = this.scale;
@@ -254,12 +273,12 @@ export class Stage4 extends Phaser.Scene {
 		// UI更新
 		const elapsed = this.time.now - this.startTime;
 		const remain = Math.max(0, Math.ceil((this.stageDuration - elapsed) / 1000));
-		this.uiText.setText(`TIME: ${remain}s   PHASE: ${this.phase}`);
+//		this.uiText.setText(`TIME: ${remain}s   PHASE: ${this.phase}`);
 
-		// 落下死
-		if (this.player.y > this.fallLimitY) {
-			this.gameOver('鍋に落ちた…！');
-		}
+//		// 落下死
+//		if (this.player.y > this.fallLimitY) {
+//			this.gameOver('鍋に落ちた…！');
+//		}
 
 		// 画面外の障害物を掃除
 		this.obstacles.getChildren().forEach((o) => {
@@ -308,7 +327,7 @@ export class Stage4 extends Phaser.Scene {
 	}
 
 	// -------------------------
-	// フェーズ制御（ボスなし）
+	// フェーズ制御
 	// -------------------------
 	updatePhaseAndGoal() {
 		const elapsed = this.time.now - this.startTime;
@@ -364,7 +383,7 @@ export class Stage4 extends Phaser.Scene {
 	// -------------------------
 	spawnGyusuji() {
 		const { width, height } = this.scale;
-		const o = this.obstacles.create(width + 40, height - 120, 'gyusuji')
+		const o = this.obstacles.create(width + 40, height - 70, 'gyusuji')
 			.setScale(0.08)
 			.setOrigin(0.5, 1);
 		o.setData('type', 'gyusuji');
@@ -391,9 +410,10 @@ export class Stage4 extends Phaser.Scene {
 
 				o.setData('type', 'chikuwa');
 				o.body.setAllowGravity(true);
+				o.setGravityY(600);
 
-				o.setVelocityX(Phaser.Math.Between(-260, -180));
-				o.setVelocityY(Phaser.Math.Between(60, 160));
+				o.setVelocityX(Phaser.Math.Between(-120, -60));
+				o.setVelocityY(Phaser.Math.Between(50, 100));
 				o.setBounce(0.2);
 			});
 		};
@@ -406,13 +426,17 @@ export class Stage4 extends Phaser.Scene {
 		}
 	}
 
-	// きんちゃく（mochi）：現状維持
+	// きんちゃく（mochi）
 	spawnMochi() {
 		const { width } = this.scale;
 		const x = Phaser.Math.Between(this.player.x + 120, width + 40);
 		const o = this.obstacles.create(x, -40, 'mochi')
 			.setScale(0.1);
 		o.setData('type', 'mochi');
+
+		o.body.setAllowGravity(true);
+		o.setGravityY(500);
+
 		o.setVelocityX(-120);
 		o.setBounce(0.6);
 	}
@@ -425,7 +449,6 @@ export class Stage4 extends Phaser.Scene {
 		const key = Phaser.Utils.Array.GetRandom(eggKeys);
 
 		// 右側（画面内～少し外）から
-		//const x = Phaser.Math.Between(Math.floor(width * 0.6), width + 40);
 		const x = width - 50;
 		const y = Phaser.Math.Between(60, height - 260);
 
@@ -471,9 +494,8 @@ export class Stage4 extends Phaser.Scene {
 		// 出現済みフラグを立てる
 		this.bossSpawned = true;
 
-		// ★追加：ここで無敵モードを自動解除！
-		this.isDebugInvincible = false;
-		console.log('無敵モード解除：ダメージが入ります');
+		// ★ここで無敵モードを自動解除！
+//		this.isDebugInvincible = false;
 
 		const { width, height } = this.scale;
 
@@ -761,32 +783,21 @@ export class Stage4 extends Phaser.Scene {
 			}
 		).setOrigin(0.5).setDepth(100);
 
-		this.add.text(
-			width / 2,
-			height / 2 + 60,
-			'R：リスタート',
-			{
-				fontFamily: 'monospace',
-				fontSize: '18px',
-				color: '#ffffff',
-			}
-		).setOrigin(0.5).setDepth(100);
-
 		const keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 		keyR.once('down', () => this.scene.restart());
 	}
 
 	gameOver(msg) {
-		// ★追加：フラグを立てる
+		// フラグを立てる
 		this.isGameOver = true;
 
-		// ★追加：敵スポーンのタイマーを停止
+		// 敵スポーンのタイマーを停止
 		if (this.spawnEvent) {
 			this.spawnEvent.remove(false);
 			this.spawnEvent = null;
 		}
 
-		// ★追加：フェーズ進行チェックのタイマーを停止
+		// フェーズ進行チェックのタイマーを停止
 		if (this.phaseEvent) {
 			this.phaseEvent.remove(false);
 			this.phaseEvent = null;
@@ -825,4 +836,66 @@ export class Stage4 extends Phaser.Scene {
 		const keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 		keyR.once('down', () => this.scene.restart());
 	}
+
+	//--------------------------------------------
+	// 共通部品（あとで外部モジュール化しても良い）
+	//--------------------------------------------
+	// ステージ開始バナー表示
+	showStageBanner(text) {
+		const { width } = this.scale;
+		const t = this.add.text(width / 2, 60, text, {
+			fontFamily: 'sans-serif',
+			fontSize: '24px',
+			color: '#ffffff',
+			stroke: '#000000',
+			strokeThickness: 6,
+		}).setOrigin(0.5).setDepth(999);
+
+		this.tweens.add({
+			targets: t,
+			alpha: 0,
+			duration: 600,
+			delay: 1200,
+			onComplete: () => t.destroy(),
+		});
+	}
+
+	// 操作説明表示
+	showControls(text) {
+		if (this.controlsText) this.controlsText.destroy();
+
+		this.controlsText = this.add.text(16, 12, text, {
+			fontFamily: 'sans-serif',
+			fontSize: '18px',
+			color: '#000',
+			backgroundColor: '#ffffffcc',
+			padding: { left: 10, right: 10, top: 6, bottom: 6 },
+		}).setDepth(1000);
+
+		this.controlsText.setScrollFactor(0); // カメラが動いても固定
+	}
+
+	// 共通キー設定（R: リスタート、T: タイトルへ）
+	setupCommonKeys() {
+		this.keyR = this.input.keyboard.addKey(
+			Phaser.Input.Keyboard.KeyCodes.R
+		);
+		this.keyT = this.input.keyboard.addKey(
+			Phaser.Input.Keyboard.KeyCodes.T
+		);
+	}
+
+	updateCommonKeys() {
+		if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
+			this.scene.restart();
+		}
+		if (Phaser.Input.Keyboard.JustDown(this.keyT)) {
+			this.goToTitle();
+		}
+	}
+
+	goToTitle() {
+		// TitleScene.js で設定している key: 'Title' に合わせる
+		this.scene.start('Title');
+	}    
 }
