@@ -10,6 +10,17 @@ export class Stage3 extends Phaser.Scene {
 	}
 
 	create() {
+		this.showStageBanner('Stage3：買い物カゴを避けろ');
+
+		// 青空っぽい色
+		this.cameras.main.setBackgroundColor('#87ceeb');
+
+		// 操作説明表示
+		this.showControls('←→ 移動 / R リスタート / T タイトル　【敵に当たらず60秒逃げ切れ！】');
+
+		// 共通キー設定
+		this.setupCommonKeys();
+
 		// ===== 状態リセット =====
 		this.isGameOver = false;
 		this.isCleared = false;
@@ -17,11 +28,6 @@ export class Stage3 extends Phaser.Scene {
 		// タイマー（60秒生存）
 		this.surviveMs = 60_000;
 		this.startTime = this.time.now;
-
-		// ===== 背景（任意） =====
-		// 背景画像があるなら差し替え
-		// this.add.image(0, 0, 'bg_market').setOrigin(0, 0);
-		this.cameras.main.setBackgroundColor('#7aa9b8');
 
 		// ===== 地面 =====
 		const groundY = 520;
@@ -45,16 +51,14 @@ export class Stage3 extends Phaser.Scene {
 
 		// 主人公に当たったらゲームオーバー
 		this.physics.add.overlap(this.hero, this.baskets, () => {
+			// 無敵モードなら何もしないで帰る
+			if (this.isInvincible) {
+				return;
+			}
 			this.handleGameOver();
 		});
 
 		// ===== UI =====
-		this.helpText = this.add.text(
-		  20, 12,
-		  '←→で移動 / 60秒生き残れ！',
-		  { fontSize: '18px', color: '#000', padding: { top: 6, bottom: 2 } }
-		).setScrollFactor(0);
-
 		this.timerText = this.add.text(
 			20, 44,
 			'残り: 60.0s',
@@ -67,9 +71,9 @@ export class Stage3 extends Phaser.Scene {
 		this.spawnDelayMin = 500;  // 下限
 		this.spawnStep = 80;       // 1回ごとの短縮
 		this.spawnEvent = this.time.addEvent({
-		  delay: this.spawnDelay,
-		  loop: true,
-		  callback: () => this.spawnBasket(),
+			delay: this.spawnDelay,
+			loop: true,
+			callback: () => this.spawnBasket(),
 		});
 
 		// クリック/タップでリトライ（GameOver時） / 次へ（Clear時）
@@ -77,6 +81,21 @@ export class Stage3 extends Phaser.Scene {
 		  if (this.isGameOver) this.scene.restart();
 		  if (this.isCleared) this.scene.start('Stage4'); // Stage4が無ければ restart でもOK
 		});
+
+		// ===== デバッグ用：Iキーで無敵切り替え =====
+		this.isInvincible = false; // 初期状態は無敵じゃない
+
+/*		this.input.keyboard.on('keydown-I', () => {
+			this.isInvincible = !this.isInvincible;
+			
+			if (this.isInvincible) {
+				this.hero.setTint(0xff0000); // 無敵中は赤くする
+				console.log('無敵モード: ON');
+			} else {
+				this.hero.clearTint();       // 元の色に戻す
+				console.log('無敵モード: OFF');
+			}
+		});	*/
 	}
 
 	spawnBasket() {
@@ -98,10 +117,10 @@ export class Stage3 extends Phaser.Scene {
 
 		// ★ 30秒まではゆっくり
 		if (elapsed < 30_000) {
-			vy = Phaser.Math.Between(60, 100);
+			vy = Phaser.Math.Between(300, 600);
 		} else {
 			// ★ それ以降は元の速度
-			vy = Phaser.Math.Between(100, 200);
+			vy = Phaser.Math.Between(500, 900);
 		}
 
 		basket.setVelocity(0, vy);
@@ -133,12 +152,11 @@ export class Stage3 extends Phaser.Scene {
 	}
 
 	update(time, delta) {
+		// 共通キー処理
+		this.updateCommonKeys();
+
 		// 終了中は止める（見た目も挙動も固定）
 		if (this.isGameOver || this.isCleared) {
-			// Spaceでリトライ
-			if (this.isGameOver && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-				this.scene.restart();
-			}
 			return;
 		}
 
@@ -185,7 +203,7 @@ export class Stage3 extends Phaser.Scene {
 			fontStyle: 'bold',
 		}).setOrigin(0.5);
 
-		this.add.text(400, 320, 'クリック / タップ / Spaceキーでリトライ', {
+		this.add.text(400, 320, 'クリック / タップ / Rキーでリトライ', {
 			fontSize: '20px',
 			color: '#000',
 		}).setOrigin(0.5);
@@ -198,18 +216,83 @@ export class Stage3 extends Phaser.Scene {
 		if (this.spawnEvent) this.spawnEvent.remove(false);
 		this.physics.pause();
 
-		this.add.text(400, 260, 'CLEAR!', {
-			fontSize: '64px',
+		// クリア表示
+		const { width, height } = this.scale;
+		this.add.text(width / 2, height / 2 - 20, 'CLEAR!', {
+			fontSize: '48px',
 			color: '#000',
-			fontStyle: 'bold',
+			fontStyle: 'bold'
 		}).setOrigin(0.5);
 
-		this.add.text(400, 320, 'クリック / タップで次へ', {
+		this.add.text(width / 2, height / 2 + 20, 'クリック / タップで次へ', {
 			fontSize: '20px',
-			color: '#000',
+			color: '#000'
 		}).setOrigin(0.5);
 
-		// Stage4 がまだなら、ここだけ restart にしてもOK
-		// this.scene.restart();
+		this.time.delayedCall(2000, () => {
+			this.scene.start('Stage4');
+		});
 	}
+
+	//--------------------------------------------
+	// 共通部品（あとで外部モジュール化しても良い）
+	//--------------------------------------------
+	// ステージ開始バナー表示
+	showStageBanner(text) {
+		const { width } = this.scale;
+		const t = this.add.text(width / 2, 60, text, {
+			fontFamily: 'sans-serif',
+			fontSize: '24px',
+			color: '#ffffff',
+			stroke: '#000000',
+			strokeThickness: 6,
+		}).setOrigin(0.5).setDepth(999);
+
+		this.tweens.add({
+			targets: t,
+			alpha: 0,
+			duration: 600,
+			delay: 1200,
+			onComplete: () => t.destroy(),
+		});
+	}
+
+	// 操作説明表示
+	showControls(text) {
+		if (this.controlsText) this.controlsText.destroy();
+
+		this.controlsText = this.add.text(16, 12, text, {
+			fontFamily: 'sans-serif',
+			fontSize: '18px',
+			color: '#000',
+			backgroundColor: '#ffffffcc',
+			padding: { left: 10, right: 10, top: 6, bottom: 6 },
+		}).setDepth(1000);
+
+		this.controlsText.setScrollFactor(0); // カメラが動いても固定
+	}
+
+	// 共通キー設定（R: リスタート、T: タイトルへ）
+	setupCommonKeys() {
+		this.keyR = this.input.keyboard.addKey(
+			Phaser.Input.Keyboard.KeyCodes.R
+		);
+		this.keyT = this.input.keyboard.addKey(
+			Phaser.Input.Keyboard.KeyCodes.T
+		);
+	}
+
+	updateCommonKeys() {
+		if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
+			this.scene.restart();
+		}
+		if (Phaser.Input.Keyboard.JustDown(this.keyT)) {
+			this.goToTitle();
+		}
+	}
+
+	goToTitle() {
+		// TitleScene.js で設定している key: 'Title' に合わせる
+		this.scene.start('Title');
+	}    
 }
