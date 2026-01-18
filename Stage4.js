@@ -1,13 +1,10 @@
-// Stage4.js（ダイコンボス完全削除版）
-// - スペース：黒い弾を発射（雑魚は1発で消える）
-// - 3段ジャンプ
-// - ちくわ：右半分ランダムXから落下＋左流れ（たまに2連）
-// - 卵：右側ランダムからプレイヤーめがけて飛来（壁・地面で反射）
-// - 牛すじ：チュートリアル（動きはそのまま・量を増やす）
-// - きんちゃく（mochi）：現状維持
-// - ステージ時間終了で鍋（ゴール）出現（ボス戦なし）
+import { BaseStage } from './BaseStage.js';
 
-export class Stage4 extends Phaser.Scene {
+export class Stage4 extends BaseStage {
+
+	// *******************
+	// コンストラクタ
+	// *******************
 	constructor() {
 		super({ key: 'Stage4' });
 
@@ -17,15 +14,17 @@ export class Stage4 extends Phaser.Scene {
 		this.maxJumps = 3;
 	}
 
-	// scene.restart() 対策：毎回ここで状態を初期化
+	// *******************
+	// init
+	// *******************
 	init() {
-		// HP（3回当たったらアウト）
+		// HP（2回当たったらアウト）
 		this.maxHp = 2;
 		this.hp = this.maxHp;
 		this.invincibleUntil = 0;
 
-		// ★デバッグ用：ここを true にすると無敵になります
-		this.isDebugInvincible = false;
+		// ★デバッグ用：無敵モード
+		this.damageEnabled = true;
 
 		// ボス管理用
 		this.boss = null;
@@ -50,6 +49,9 @@ export class Stage4 extends Phaser.Scene {
 		this.isGameOver = false;
 	}
 
+	// *******************
+	// preload
+	// *******************
 	preload() {
 		this.load.image('hero', 'assets/hero_processed.png');
 
@@ -69,6 +71,9 @@ export class Stage4 extends Phaser.Scene {
 		this.load.image('pot', 'assets/pot.png');
 	}
 
+	// *******************
+	// create
+	// *******************
 	create() {
 		this.showStageBanner('Stage4：先輩具材の試練');
 
@@ -159,7 +164,7 @@ export class Stage4 extends Phaser.Scene {
 			color: '#0b1b2b',
 		});
 
-		this.messageText = this.add.text(width / 2, 60, '', {
+		this.messageText = this.add.text(width / 2, 150, '', {
 			fontFamily: 'sans-serif',
 			fontSize: '22px',
 			color: '#ffffff',
@@ -235,6 +240,9 @@ export class Stage4 extends Phaser.Scene {
 //		this.physics.world.createDebugGraphic();
 	}
 
+	// *******************
+	// update
+	// *******************
 	update() {
 		// 共通キー更新
 		this.updateCommonKeys();
@@ -270,16 +278,6 @@ export class Stage4 extends Phaser.Scene {
 			this.shootBullet();
 		}
 
-		// UI更新
-		const elapsed = this.time.now - this.startTime;
-		const remain = Math.max(0, Math.ceil((this.stageDuration - elapsed) / 1000));
-//		this.uiText.setText(`TIME: ${remain}s   PHASE: ${this.phase}`);
-
-//		// 落下死
-//		if (this.player.y > this.fallLimitY) {
-//			this.gameOver('鍋に落ちた…！');
-//		}
-
 		// 画面外の障害物を掃除
 		this.obstacles.getChildren().forEach((o) => {
 			if (!o.active) return;
@@ -297,9 +295,10 @@ export class Stage4 extends Phaser.Scene {
 		});
 	}
 
-	// -------------------------
+	// ===================================
+	// ヘルパーメソッド群
+	// ===================================
 	// テクスチャ生成
-	// -------------------------
 	makeTextures() {
 		if (this.textures.exists('ground')) return;
 
@@ -326,9 +325,7 @@ export class Stage4 extends Phaser.Scene {
 		g.destroy();
 	}
 
-	// -------------------------
 	// フェーズ制御
-	// -------------------------
 	updatePhaseAndGoal() {
 		const elapsed = this.time.now - this.startTime;
 
@@ -352,6 +349,7 @@ export class Stage4 extends Phaser.Scene {
 		}
 	}
 
+	// ゴール開放
 	spawnByPhase() {
 		// ゴールが開いた後は、敵スポーンを止める
 		if (this.goalOpened) return;
@@ -378,9 +376,7 @@ export class Stage4 extends Phaser.Scene {
 		}
 	}
 
-	// -------------------------
 	// 敵スポーン
-	// -------------------------
 	spawnGyusuji() {
 		const { width, height } = this.scale;
 		const o = this.obstacles.create(width + 40, height - 70, 'gyusuji')
@@ -426,7 +422,7 @@ export class Stage4 extends Phaser.Scene {
 		}
 	}
 
-	// きんちゃく（mochi）
+	// きんちゃく（mochi）：右側ランダム位置から落下＋左へ流れる
 	spawnMochi() {
 		const { width } = this.scale;
 		const x = Phaser.Math.Between(this.player.x + 120, width + 40);
@@ -487,15 +483,13 @@ export class Stage4 extends Phaser.Scene {
 		egg.setVelocity(dx * speed, dy * speed);
 	}
 
-	// -------------------------
-	// ボス出現（演出のみ・ダメージなし）
-	// -------------------------
+	// ボス出現
 	spawnBoss() {
 		// 出現済みフラグを立てる
 		this.bossSpawned = true;
 
-		// ★ここで無敵モードを自動解除！
-//		this.isDebugInvincible = false;
+		// ★ここで無敵モードを解除できる
+//		this.damageEnabled = true;
 
 		const { width, height } = this.scale;
 
@@ -584,8 +578,9 @@ export class Stage4 extends Phaser.Scene {
 		// 1. プレイヤーとの接触（即死）
 		this.physics.add.overlap(this.player, this.boss, () => {
 			if (this.isGameOver) return;
+			if (!this.damageEnabled) return;
 			this.player.setTint(0xff0000);
-			this.gameOver('ダイコンの圧倒的圧力に屈した…');
+			this.gameOver();
 		});
 
 		// 2. 弾との接触（ダメージ）
@@ -607,9 +602,7 @@ export class Stage4 extends Phaser.Scene {
 		});
 	}
 
-	// -------------------------
 	// ボスの攻撃（3Way弾）
-	// -------------------------
 	fireBossBullets() {
 		if (!this.boss || !this.boss.active) return;
 
@@ -640,9 +633,7 @@ export class Stage4 extends Phaser.Scene {
 		});
 	}
 
-	// -------------------------
 	// シューティング
-	// -------------------------
 	shootBullet() {
 		const now = this.time.now;
 		if (now - this.lastShotAt < 150) return;
@@ -659,12 +650,10 @@ export class Stage4 extends Phaser.Scene {
 		bullet.setVelocityX(600);
 	}
 
-	// -------------------------
 	// ダメージ処理
-	// -------------------------
 	hitObstacle(obs) {
-		// ★デバッグ無敵モードなら何もしない
-		if (this.isDebugInvincible) return;
+		// デバッグ無敵モードなら何もしない
+		if (!this.damageEnabled) return;
 
 		const now = this.time.now;
 		if (now < this.invincibleUntil) return;
@@ -677,17 +666,13 @@ export class Stage4 extends Phaser.Scene {
 		this.cameras.main.shake(80, 0.004);
 		
 		// ライフに応じた色変化（Tint）
-		// 初期(3)は白(Tintなし)、減るごとに青→赤へ
-		if (this.hp === 2) {
-			// 1回当たった（残り2）：水色っぽく
-			this.player.setTint(0x88ccff);
-		} else if (this.hp === 1) {
-			// 2回当たった（残り1）：濃い青（ピンチ感）
+		if (this.hp === 1) {
+			// 1回当たった（残り1）：濃い青（ピンチ感）
 			this.player.setTint(0x4444ff);
 		} else if (this.hp <= 0) {
-			// 3回当たった（残り0）：赤
+			// 2回当たった（残り0）：赤
 			this.player.setTint(0xff0000);
-			this.gameOver('コンニャクは力尽きた…');
+			this.gameOver();
 			return; // ゲームオーバー処理へ
 		}
 
@@ -705,25 +690,18 @@ export class Stage4 extends Phaser.Scene {
 		});
 	}
 
-	// -------------------------
 	// ボス撃破時の処理
-	// -------------------------
-	defeatBoss() {
-		// 爆発エフェクトの代わりに、少し揺らしてから消すなどの演出も可能ですが
-		// まずはシンプルに消滅させます
-		
+	defeatBoss() {		
 		if (this.boss) {
 			this.boss.destroy();
 			this.boss = null; // 変数も空にしておく
 		}
 
 		// メッセージの更新
-		// もし鍋（ゴール）が既に出ているなら「鍋へジャンプ！」に書き換え
 		if (this.goalOpened) {
 			if (this.messageText) this.messageText.setText('鍋へジャンプ！');
 		} else {
 			// まだ鍋が出ていない場合（60秒未満で倒した場合）
-			// 鍋が出るまで待機中のメッセージにする
 			if (this.messageText) this.messageText.setText('鍋の出現を待て…');
 		}
 
@@ -731,17 +709,14 @@ export class Stage4 extends Phaser.Scene {
 		this.cameras.main.shake(150, 0.01);
 	}
 
-	// -------------------------
 	// ゴール解放（鍋へジャンプ）
-	// -------------------------
 	openGoal() {
 		this.goalOpened = true;
 
 		// 敵の追加を止める
 		if (this.spawnEvent) this.spawnEvent.remove(false);
 
-		// ★修正：ボスが生きていたら「鍋へジャンプ」のメッセージを出さない
-		// （ボスがいない時だけメッセージを出す）
+		// ボスが生きていたら「鍋へジャンプ」のメッセージを出さない
 		if (!this.boss || !this.boss.active) {
 			if (this.messageText) this.messageText.setText('鍋へジャンプ！');
 		}
@@ -749,15 +724,11 @@ export class Stage4 extends Phaser.Scene {
 		// 鍋表示（ボスがいる時でも、鍋自体は見えていたほうが「守ってる感」が出ます）
 		this.pot.setVisible(true);
 		
-		// ★補足：もし「ボスを倒すまでゴール判定も無効にしたい」場合は
-		// ここも if (!this.boss) { ... } で囲ってください。
-		// 今はテスト用に「隙間をくぐればクリアできる」状態にしておきます。
+		// 隙間をくぐればクリアできる状態
 		this.goalZone.body.enable = true;
 	}
 
-	// -------------------------
-	// クリア / ゲームオーバー
-	// -------------------------
+	// クリア処理
 	clearStage() {
 		// 連打防止
 		this.goalOpened = false;
@@ -766,28 +737,12 @@ export class Stage4 extends Phaser.Scene {
 		this.player.setVelocity(0, 0);
 		this.player.setDepth(20); // 最前面維持
 
-		const { width, height } = this.scale;
-		this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45).setDepth(90);
-
-		this.add.text(
-			width / 2,
-			height / 2 - 30,
-			'クリア！\nこうして、立派なおでんになりました',
-			{
-				fontFamily: 'sans-serif',
-				fontSize: '26px',
-				color: '#ffffff',
-				align: 'center',
-				stroke: '#000000',
-				strokeThickness: 6,
-			}
-		).setOrigin(0.5).setDepth(100);
-
-		const keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-		keyR.once('down', () => this.scene.restart());
+		// クリア表示
+		this.showGameClear(4);
 	}
 
-	gameOver(msg) {
+	// ゲームオーバー処理
+	gameOver() {
 		// フラグを立てる
 		this.isGameOver = true;
 
@@ -805,97 +760,7 @@ export class Stage4 extends Phaser.Scene {
 
 		this.physics.pause();
 
-		const { width, height } = this.scale;
-		this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45).setDepth(90);
-
-		this.add.text(
-			width / 2,
-			height / 2 - 20,
-			`ゲームオーバー\n${msg}`,
-			{
-				fontFamily: 'sans-serif',
-				fontSize: '26px',
-				color: '#ffffff',
-				align: 'center',
-				stroke: '#000000',
-				strokeThickness: 6,
-			}
-		).setOrigin(0.5).setDepth(100);
-
-		this.add.text(
-			width / 2,
-			height / 2 + 60,
-			'R：リスタート',
-			{
-				fontFamily: 'monospace',
-				fontSize: '18px',
-				color: '#ffffff',
-			}
-		).setOrigin(0.5).setDepth(100);
-
-		const keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-		keyR.once('down', () => this.scene.restart());
+		// 画面中央にGAME OVER表示
+		this.showGameOver();
 	}
-
-	//--------------------------------------------
-	// 共通部品（あとで外部モジュール化しても良い）
-	//--------------------------------------------
-	// ステージ開始バナー表示
-	showStageBanner(text) {
-		const { width } = this.scale;
-		const t = this.add.text(width / 2, 60, text, {
-			fontFamily: 'sans-serif',
-			fontSize: '24px',
-			color: '#ffffff',
-			stroke: '#000000',
-			strokeThickness: 6,
-		}).setOrigin(0.5).setDepth(999);
-
-		this.tweens.add({
-			targets: t,
-			alpha: 0,
-			duration: 600,
-			delay: 1200,
-			onComplete: () => t.destroy(),
-		});
-	}
-
-	// 操作説明表示
-	showControls(text) {
-		if (this.controlsText) this.controlsText.destroy();
-
-		this.controlsText = this.add.text(16, 12, text, {
-			fontFamily: 'sans-serif',
-			fontSize: '18px',
-			color: '#000',
-			backgroundColor: '#ffffffcc',
-			padding: { left: 10, right: 10, top: 6, bottom: 6 },
-		}).setDepth(1000);
-
-		this.controlsText.setScrollFactor(0); // カメラが動いても固定
-	}
-
-	// 共通キー設定（R: リスタート、T: タイトルへ）
-	setupCommonKeys() {
-		this.keyR = this.input.keyboard.addKey(
-			Phaser.Input.Keyboard.KeyCodes.R
-		);
-		this.keyT = this.input.keyboard.addKey(
-			Phaser.Input.Keyboard.KeyCodes.T
-		);
-	}
-
-	updateCommonKeys() {
-		if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
-			this.scene.restart();
-		}
-		if (Phaser.Input.Keyboard.JustDown(this.keyT)) {
-			this.goToTitle();
-		}
-	}
-
-	goToTitle() {
-		// TitleScene.js で設定している key: 'Title' に合わせる
-		this.scene.start('Title');
-	}    
 }

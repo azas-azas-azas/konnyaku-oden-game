@@ -1,4 +1,10 @@
-export class Stage2 extends Phaser.Scene {
+import { BaseStage } from './BaseStage.js';
+
+export class Stage2 extends BaseStage {
+
+	// *******************
+	// コンストラクタ
+	// *******************
 	constructor() {
 		super({ key: 'Stage2' });
 
@@ -18,9 +24,12 @@ export class Stage2 extends Phaser.Scene {
 		this.hp = this.maxHp;
 
 		// ゲームオーバーフラグ
-		this.isGameOver = false;        
+		this.isGameOver = false;
 	}
 
+	// *******************
+	// preload
+	// *******************
 	preload() {
 		this.load.image('hero_left', 'assets/hero_left.png');
 		this.load.image('hero_right', 'assets/hero_right.png');
@@ -42,9 +51,12 @@ export class Stage2 extends Phaser.Scene {
 		this.load.image('tako', 'assets/tako.png');
 		this.load.image('bosstako', 'assets/bosstako.png');
 
-		this.load.image('energy', 'assets/energy.png');        
+		this.load.image('energy', 'assets/energy.png');
 	}
 
+	// *******************
+	// create
+	// *******************
 	create() {
 		this.showStageBanner('Stage2：工場ラインを駆け抜けろ');
 
@@ -67,7 +79,7 @@ export class Stage2 extends Phaser.Scene {
 		this.boss = null;
 
 		// ボスが去った後の着地待ちフラグ
-		this.waitingForLanding = false;        
+		this.waitingForLanding = false;
 
 		// GAME OVER で physics.pause() しているので念のため復帰
 		this.physics.resume();
@@ -223,7 +235,7 @@ export class Stage2 extends Phaser.Scene {
 			color: '#000000',
 			fontStyle: 'bold'
 		}).setScrollFactor(0); // カメラと一緒に動かないように固定
-		
+
 		// 背景バー（グレー）
 		this.hpBarBg = this.add.rectangle(
 			50, 80,
@@ -272,6 +284,9 @@ export class Stage2 extends Phaser.Scene {
 // this.physics.world.createDebugGraphic();
 	}
 
+	// *******************
+	// update
+	// *******************
 	update(time, delta) {
 		// 共通キー更新
 		this.updateCommonKeys();
@@ -322,9 +337,9 @@ export class Stage2 extends Phaser.Scene {
 			const b = this.boss.getBounds();
 			if (b.right < 0) {
 				this.waitingForLanding = true; // 着地待ち開始
-				
+
 				// ボスはもう画面外なので消してOK
-				this.boss.destroy(); 
+				this.boss.destroy();
 				this.boss = null;
 			}
 		}
@@ -387,6 +402,10 @@ export class Stage2 extends Phaser.Scene {
 		});
 	}
 
+	// ===================================
+	// ヘルパーメソッド群
+	// ===================================
+	// ジャンプを試みる
 	tryJump() {
 		// 最大回数に達していたらこれ以上ジャンプしない
 		if (this.jumpCount >= this.maxJumps) {
@@ -407,7 +426,7 @@ export class Stage2 extends Phaser.Scene {
 	getDamageForObstacle(obstacle) {
 		const key = obstacle.texture ? obstacle.texture.key : '';
 
-		const damageEnabled = true; // 無敵モード用（デバッグ用）
+		const damageEnabled = false; // 無敵モード用（★デバッグ用）
 		if (!damageEnabled) {
 			return 0;
 		}
@@ -422,14 +441,14 @@ export class Stage2 extends Phaser.Scene {
 			case 'cutter_red':        // 赤いでかカッター → 半減
 				  return this.maxHp * 0.33 ;
 
-			case 'cutter':            // 通常カッター 
+			case 'cutter':            // 通常カッター
 				return 8;
 
 			case 'box':
 			case 'box_open':          // 段ボール系
 				return 6;
 
-			case 'spark':             // 火花  
+			case 'spark':             // 火花
 				return 4;
 
 			case 'steam':             // 蒸気
@@ -454,6 +473,7 @@ export class Stage2 extends Phaser.Scene {
 		}
 	}
 
+	// 回復アイテムを取ったときの処理
 	onPickupEnergy(item) {
 		if (!item || !item.active) return;
 
@@ -466,7 +486,7 @@ export class Stage2 extends Phaser.Scene {
 		this.updateHpBar();
 	}
 
-	// HP0 になったときの処理（ひとまずステージ再スタート）
+	// HP0 になったときの処理
 	handlePlayerDeath() {
 		if (this.isGameOver) return;  // 多重実行防止
 		this.isGameOver = true;
@@ -486,35 +506,10 @@ export class Stage2 extends Phaser.Scene {
 		}
 
 		// 画面中央にGAME OVER表示
-		const { width, height } = this.scale;
-
-		const gameOverText = this.add.text(width / 2, height / 2 - 20, 'GAME OVER', {
-			fontSize: '40px',
-			color: '#000000',
-			fontStyle: 'bold'
-		}).setOrigin(0.5).setDepth(9999);
-
-		const retryText = this.add.text(width / 2, height / 2 + 20, 'R または クリックでリトライ', {
-			fontSize: '20px',
-			color: '#000000'
-		}).setOrigin(0.5).setDepth(9999);
-
-		// 画面を少し暗くするオーバーレイ
-		const overlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.3)
-			.setOrigin(0, 0)
-			.setDepth(9998); // テキストの下になるように
-
-		const restartGame = () => {
-			this.scene.restart();
-		};			
-		// クリック or タップで再スタート
-		this.input.once('pointerdown', restartGame);
-
-		// Rキーでも再スタート
-		this.input.keyboard.once('keydown-R', restartGame);
+		this.showGameOver();
 	}
 
-	// 共通：次の障害物出現をスケジュール
+	// 次の障害物出現をスケジュール
 	scheduleNextObstacle() {
 		// ゲームオーバーなら新規予約しない
 		if (this.isGameOver || this.isCleared || this.isBossFight) return;
@@ -530,23 +525,24 @@ export class Stage2 extends Phaser.Scene {
 		this.nextObstacleEvent = this.time.addEvent({
 			delay,
 			callback: () => {
-			// 発火時点でゲームオーバーなら何もしない
-			if (this.isGameOver || this.isCleared || this.isBossFight) return;
+				// 発火時点でゲームオーバーなら何もしない
+				if (this.isGameOver || this.isCleared || this.isBossFight) return;
 
-			if (this.phase === 'early') {
-				this.spawnEarlyPattern();
-			} else if (this.phase === 'middle') {
-				this.spawnMiddlePattern();
-			} else {
-				this.spawnLatePattern();
-			}
+				if (this.phase === 'early') {
+					this.spawnEarlyPattern();
+				} else if (this.phase === 'middle') {
+					this.spawnMiddlePattern();
+				} else {
+					this.spawnLatePattern();
+				}
 
-			// 次を予約
-			this.scheduleNextObstacle();
+				// 次を予約
+				this.scheduleNextObstacle();
 			},
 		});
 	}
 
+	// ステージクリア処理
 	handleStageClear() {
 		if (this.isCleared) return;
 		this.isCleared = true;
@@ -560,24 +556,14 @@ export class Stage2 extends Phaser.Scene {
 		this.physics.pause();
 
 		// クリア表示
-		const { width, height } = this.scale;
-		this.add.text(width / 2, height / 2 - 20, 'CLEAR!', {
-			fontSize: '48px',
-			color: '#000',
-			fontStyle: 'bold'
-		}).setOrigin(0.5);
+		this.showGameClear(2);
 
-		this.add.text(width / 2, height / 2 + 20, 'クリック / タップで次へ', {
-			fontSize: '20px',
-			color: '#000'
-		}).setOrigin(0.5);
-
-		this.time.delayedCall(2000, () => {
+		this.time.delayedCall(3000, () => {
 			this.scene.start('Stage3');
 		});
 	}
 
-	// 共通：1個の障害物を生成するヘルパー
+	// 1個の障害物を生成する
 	spawnHazard(textureKey, minSpeed, maxSpeed, minScale, maxScale, yOffset = 0) {
 		const width = this.scale.width;
 
@@ -601,6 +587,7 @@ export class Stage2 extends Phaser.Scene {
 		return obstacle;
 	}
 
+	// 段ボール（閉封）
 	spawnClosedBox() {
 		const obstacle = this.spawnHazard(
 			'box',
@@ -614,6 +601,7 @@ export class Stage2 extends Phaser.Scene {
 		return obstacle;
 	}
 
+	// 段ボール（開封）
 	spawnOpenBox() {
 		const obstacle = this.spawnHazard(
 			'box_open',
@@ -628,6 +616,7 @@ export class Stage2 extends Phaser.Scene {
 		return obstacle;
 	}
 
+	// 赤いカッターを出す
 	spawnRedCutter() {
 		// 地面から 25px 〜 60px くらい上の高さをランダムにする
 		const y = this.groundY - Phaser.Math.Between(25, 60);
@@ -651,7 +640,7 @@ export class Stage2 extends Phaser.Scene {
 		cutter.body.setSize(radius * 2, radius * 2);
 		cutter.body.setOffset(
 			cutter.width / 2 - radius,
-			cutter.height / 2 - radius 
+			cutter.height / 2 - radius
 		);
 
 		// 衝突による停止を完全無効化
@@ -664,6 +653,7 @@ export class Stage2 extends Phaser.Scene {
 		cutter.setDepth(5);
 	}
 
+	// 段ボール箱（開封 or 閉封）をランダムに出す
 	spawnMiddleBox() {
 		const isOpen = Phaser.Math.FloatBetween(0, 1) < 0.2; // 20%くらいを開封箱に
 
@@ -674,7 +664,7 @@ export class Stage2 extends Phaser.Scene {
 		}
 	}
 
-	// late用：Spark（火花）をローラー付近の高さで右→左に流す
+	// Spark（火花）をローラー付近の高さで右→左に流す
 	spawnSparkHazard() {
 		const obstacle = this.spawnHazard(
 			'spark',
@@ -693,7 +683,7 @@ export class Stage2 extends Phaser.Scene {
 		return obstacle;
 	}
 
-	// late用：Smoke（蒸気）をローラー付近の高さで右→左に流す
+	// Smoke（蒸気）をローラー付近の高さで右→左に流す
 	spawnSmokeHazard() {
 		const obstacle = this.spawnHazard(
 			'steam',
@@ -737,6 +727,7 @@ export class Stage2 extends Phaser.Scene {
 		return tako;
 	}
 
+	// ボスキャラ：巨大タコ
 	spawnBossTako() {
 		const tako = this.obstacles.create(
 			this.scale.width + 80,
@@ -778,10 +769,11 @@ export class Stage2 extends Phaser.Scene {
 			ease: 'Linear',
 			onComplete: () => msg.destroy()
 		});
-		
+
 		return tako;
 	}
 
+	// 回復アイテム生成
 	spawnEnergy(y) {
 		if (this.isGameOver) return;
 
@@ -800,7 +792,7 @@ export class Stage2 extends Phaser.Scene {
 		return item;
 	}
 
-	// ゆっくり点滅させる Tween
+	// ゆっくり点滅させる
 	addBlinkTween(target) {
 		const duration = Phaser.Math.Between(400, 900);
 		const delay = Phaser.Math.Between(0, 600);
@@ -826,7 +818,7 @@ export class Stage2 extends Phaser.Scene {
 		// ボスなら消滅させない（ボスはプレイヤーを通過していく）
 		if (this.boss && obstacle === this.boss) {
 			return;
-		}        
+		}
 
 		// とりあえず「1回当たったら消える」ようにする
 		if (obstacle.disableBody) {
@@ -836,9 +828,7 @@ export class Stage2 extends Phaser.Scene {
 		}
 	}
 
-
-
-	// 前半：カッターでジャンプ練習
+	// 前半：カッター系障害物
 	spawnEarlyPattern() {
 		const r = Phaser.Math.Between(0, 1);
 
@@ -857,11 +847,11 @@ export class Stage2 extends Phaser.Scene {
 				400, 600,
 				0.01, 0.05
 			);
-			mini.spinSpeed = 0; // ★ 回転しない
+			mini.spinSpeed = 0; // 回転しない
 		}
 	}
 
-	// 中盤：コンベア上を流れる箱（ローラーを箱に見立てる or 後でテクスチャ差し替え）
+	// 中盤：コンベア上を流れる箱
 	spawnMiddlePattern() {
 		this.spawnMiddleBox();
 
@@ -873,7 +863,7 @@ export class Stage2 extends Phaser.Scene {
 			});
 		}
 	}
-	
+
 	// 後半：高速ローラーゾーン ＋ Spark/Smoke 障害物
 	spawnLatePattern() {
 		// 7% くらいの確率で隠しタコ出現
@@ -891,69 +881,7 @@ export class Stage2 extends Phaser.Scene {
 			this.spawnSparkHazard();
 		} else {
 			// 30%：蒸気（Smoke）
-			this.spawnSmokeHazard(); 
+			this.spawnSmokeHazard();
 		}
-	}
-
-	//--------------------------------------------
-	// 共通部品（あとで外部モジュール化しても良い）
-	//--------------------------------------------
-	// ステージ開始バナー表示
-	showStageBanner(text) {
-		const { width } = this.scale;
-		const t = this.add.text(width / 2, 60, text, {
-			fontFamily: 'sans-serif',
-			fontSize: '24px',
-			color: '#ffffff',
-			stroke: '#000000',
-			strokeThickness: 6,
-		}).setOrigin(0.5).setDepth(999);
-
-		this.tweens.add({
-			targets: t,
-			alpha: 0,
-			duration: 600,
-			delay: 1200,
-			onComplete: () => t.destroy(),
-		});
-	}
-
-	// 操作説明表示
-	showControls(text) {
-		if (this.controlsText) this.controlsText.destroy();
-
-		this.controlsText = this.add.text(16, 12, text, {
-			fontFamily: 'sans-serif',
-			fontSize: '18px',
-			color: '#000',
-			backgroundColor: '#ffffffcc',
-			padding: { left: 10, right: 10, top: 6, bottom: 6 },
-		}).setDepth(1000);
-
-		this.controlsText.setScrollFactor(0); // カメラが動いても固定
-	}
-
-	// 共通キー設定（R: リスタート、T: タイトルへ）
-	setupCommonKeys() {
-		this.keyR = this.input.keyboard.addKey(
-			Phaser.Input.Keyboard.KeyCodes.R
-		);
-		this.keyT = this.input.keyboard.addKey(
-			Phaser.Input.Keyboard.KeyCodes.T
-		);
-	}
-
-	updateCommonKeys() {
-		if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
-			this.scene.restart();
-		}
-		if (Phaser.Input.Keyboard.JustDown(this.keyT)) {
-			this.goToTitle();
-		}
-	}
-
-	goToTitle() {
-		// TitleScene.js で設定している key: 'Title' に合わせる
-		this.scene.start('Title');
 	}
 }
