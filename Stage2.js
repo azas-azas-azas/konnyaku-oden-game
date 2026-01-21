@@ -17,7 +17,7 @@ export class Stage2 extends BaseStage {
 
 		// ステージ進行管理
 		this.distance = 0;      // どれだけ進んだか（スクロール距離）
-		this.phase = 'early';   // 'early' | 'middle' | 'late' （とりあえず3段階）
+		this.phase = 'early';   // 'early' | 'middle' | 'late' （3段階）
 
 		// HP 関連
 		this.maxHp = 100;
@@ -58,13 +58,11 @@ export class Stage2 extends BaseStage {
 	// create
 	// *******************
 	create() {
-		this.showStageBanner('Stage2：工場ラインを駆け抜けろ');
+		// ゲーム開始フラグ
+		this.isGameStarted = false;
 
-		// 青空っぽい色
+		// 背景色を設定
 		this.cameras.main.setBackgroundColor('#87ceeb');
-
-		// 操作説明表示
-		this.showControls('Spaceでジャンプ / R リスタート / T タイトル　【障害物から逃げきれ！】');
 
 		// 共通キー設定
 		this.setupCommonKeys();
@@ -215,8 +213,6 @@ export class Stage2 extends BaseStage {
 			this
 		);
 
-		this.scheduleNextObstacle();
-
 		// 入力（ジャンプ）
 		this.jumpKey = this.input.keyboard.addKey(
 			Phaser.Input.Keyboard.KeyCodes.SPACE
@@ -280,8 +276,76 @@ export class Stage2 extends BaseStage {
 			color: '#000',
 		});
 
+		// オープニングを表示して待機
+		this.showOpening();
+
 // デバッグ用：当たり判定を可視化
 // this.physics.world.createDebugGraphic();
+	}
+
+	// オープニング（ストーリー）を表示
+	showOpening() {
+		const { width, height } = this.scale;
+
+		// 背景を暗く
+		const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7)
+			.setDepth(2000);
+
+		// ストーリーテキスト（工場編）
+		const storyText =
+			"見事、畑の追っ手から逃げ切った\n" +
+			"コンニャクイモ。\n\n" +
+			"しかし、たどり着いた先は\n" +
+			"恐ろしい「加工工場」だった――！\n\n" +
+			"切り刻まれる前に、\n" +
+			"ベルトコンベアを駆け抜けろ！";
+
+		const textObj = this.add.text(width / 2, height / 2 - 20, storyText, {
+			fontFamily: 'sans-serif',
+			fontSize: '24px',
+			color: '#ffffff',
+			align: 'center',
+			lineSpacing: 10
+		}).setOrigin(0.5).setDepth(2001);
+
+		// 点滅する案内テキスト
+		const startMsg = this.add.text(width / 2, height - 80, 'Spaceキーでスタート', {
+			fontFamily: 'monospace',
+			fontSize: '20px',
+			color: '#ffff00'
+		}).setOrigin(0.5).setDepth(2001);
+
+		this.tweens.add({
+			targets: startMsg,
+			alpha: 0,
+			duration: 600,
+			yoyo: true,
+			repeat: -1
+		});
+
+		// Spaceキー入力待ち
+		this.input.keyboard.once('keydown-SPACE', () => {
+			overlay.destroy();
+			textObj.destroy();
+			startMsg.destroy();
+
+			this.startGame();
+		});
+	}
+
+	// ゲーム本編開始
+	startGame() {
+		// バナーと操作説明
+		this.showStageBanner('Stage2：工場ラインを駆け抜けろ');
+		this.showControls('Spaceでジャンプ / R リスタート / T タイトル　【障害物から逃げきれ！】');
+
+		// 障害物の出現ループを開始
+		this.scheduleNextObstacle();
+
+		// Spaceキーの暴発（勝手にジャンプ）を防ぐため、0.2秒待つ
+		this.time.delayedCall(200, () => {
+			this.isGameStarted = true;
+		});
 	}
 
 	// *******************
@@ -291,7 +355,7 @@ export class Stage2 extends BaseStage {
 		// 共通キー更新
 		this.updateCommonKeys();
 
-		if (this.isGameOver || this.isCleared) {
+		if (!this.isGameStarted || this.isGameOver || this.isCleared) {
 			return; // 入力・移動など一切しない
 		}
 
