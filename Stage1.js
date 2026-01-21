@@ -257,7 +257,7 @@ export class Stage1 extends BaseStage {
 			// 敵側も少し小さめの当たり判定にする
 			const enemyRect = this.getEnemyHitbox(enemy);
 
-			const damageEnabled = false; // 無敵モード用（★デバッグ用）
+			const damageEnabled = true; // 無敵モード用（★デバッグ用）
 
 			if (Phaser.Geom.Intersects.RectangleToRectangle(
 				enemyRect,

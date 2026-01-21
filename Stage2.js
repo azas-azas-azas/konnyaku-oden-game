@@ -490,7 +490,7 @@ export class Stage2 extends BaseStage {
 	getDamageForObstacle(obstacle) {
 		const key = obstacle.texture ? obstacle.texture.key : '';
 
-		const damageEnabled = false; // 無敵モード用（★デバッグ用）
+		const damageEnabled = true; // 無敵モード用（★デバッグ用）
 		if (!damageEnabled) {
 			return 0;
 		}

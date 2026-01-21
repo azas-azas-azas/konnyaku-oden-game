@@ -21,7 +21,7 @@ export class Stage3 extends BaseStage {
 	// create
 	// *******************
 	create() {
-		// ★追加：ゲーム開始フラグ
+		// ゲーム開始フラグ
 		this.isGameStarted = false;
 
 		// 背景色を設定
@@ -78,7 +78,7 @@ export class Stage3 extends BaseStage {
 		this.spawnDelayMin = 500;
 		this.spawnStep = 80;
 
-		this.damageEnabled = false; // 無敵モード用（★デバッグ用）
+		this.damageEnabled = true; // 無敵モード用（★デバッグ用）
 
 		// オープニングへ
 		this.showOpening();
