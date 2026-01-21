@@ -40,114 +40,127 @@ export class Stage1 extends BaseStage {
 	// create
 	// *******************
 	create() {
-		this.showStageBanner('Stage1：畑から脱出');
+		// ゲーム開始フラグ
+		this.isGameStarted = false;
 
-		// 青空っぽい色
-		this.cameras.main.setBackgroundColor('#87ceeb');
+        // 背景色の設定
+        this.cameras.main.setBackgroundColor('#87ceeb');
 
-		// 操作説明表示
-		this.showControls('←↑→↓ 移動 / R リスタート / T タイトル　【敵に当たらず地上を目指せ！】');
+        // 共通キー設定
+        this.setupCommonKeys();
 
-		// 共通キー設定
-		this.setupCommonKeys();
+        // --- State ---
+        this.gameOver = false;
+        this.cleared = false;
 
-		// --- State ---
-		this.gameOver = false;
-		this.cleared = false;
+        // 地層背景
+        this.drawSoilLayers();
 
-		// 地層背景
-		this.drawSoilLayers();
+        // トラップ（石画像）を配置
+        this.traps = [];
+        this.setupTraps(); // ※石の配置処理は見やすいように別関数に分けました（後述）
 
-		// トラップ（石画像）を管理する配列
-		this.traps = [];
+        // プレイヤーサイズ
+        this.playerSize = 40;
 
-		// プレイヤーサイズ（当たり判定用）
-		this.playerSize = 40;
+        // プレイヤー配置
+        this.player = this.add.sprite(400, 550, 'hero_left');
+        this.player.setScale(0.03);
 
-		// 石画像のキー一覧
-		const rockKeys = ['rock1', 'rock2', 'rock3', 'rock4', 'rock5', 'rock6'];
-		const rockScales = [0.08, 0.10, 0.12];
+        // 入力
+        this.cursors = this.input.keyboard.createCursorKeys();
 
-		// 石トラップ配置用ヘルパー
-		// 画像キーはランダム、スケールも少しランダム
-		const addTrap = (x, y) => {
-			const key = Phaser.Utils.Array.GetRandom(rockKeys);
-			const trap = this.add.image(x, y, key);
+        // アニメーション用変数
+        this.playerAnimTimer = 0;
+        this.playerAnimState = 0;
 
-			trap.setOrigin(0.5, 0.5);
+        // 敵の配列（初期化だけしておく）
+        this.enemies = [];
 
-			const scale = Phaser.Utils.Array.GetRandom(rockScales); // ← これが石の拡大率
-			trap.setScale(scale);
+        // ゴールライン
+        this.goalLine = this.add.rectangle(400, 40, 800, 20, 0x00aa00); // 判定には使いませんが飾りとして
 
-			this.traps.push(trap);
-		};
-
-		// 各層の中心 y（背景と揃える）
-		const layerYs = [490, 380, 370, 260, 150];
-
-		// 各層ごとに何個石を置くか
-		const trapPlan = [
-			{ y: layerYs[0], count: 1, ensureCenter: true },
-			{ y: layerYs[1], count: 3, ensureCenter: true },
-			{ y: layerYs[2], count: 2, ensureCenter: true },
-			{ y: layerYs[3], count: 3, ensureCenter: true },
-			{ y: layerYs[4], count: 6, ensureCenter: false }, // 一番上はお好みで
-		];
-
-		const CENTER_X = 400;
-		const CENTER_MARGIN = 40; // 多少左右にばらしたいときに使う
-
-		trapPlan.forEach(layer => {
-			// ランダム配置（今までどおり）
-			for (let i = 0; i < layer.count; i++) {
-				const x = Phaser.Math.Between(80, 720);
-				addTrap(x, layer.y);
-			}
-
-			// この層には中央に必ず障害物を置く
-			if (layer.ensureCenter) {
-				const x = Phaser.Math.Between(CENTER_X - CENTER_MARGIN, CENTER_X + CENTER_MARGIN);
-				addTrap(x, layer.y);
-			}
-		});
-
-		// プレイヤー（こんにゃくいも）
-		// --- Player ---
-		this.player = this.add.sprite(400, 550, 'hero_left');
-		this.player.setScale(0.03);
-
-		// 入力
-		// --- Input ---
-		this.cursors = this.input.keyboard.createCursorKeys();
-
-		// アニメーション状態管理
-		this.playerAnimTimer = 0;
-		this.playerAnimState = 0; // 0: left画像, 1: right画像
-
-		// 敵の配列
-		// --- Enemies ---
-		this.enemies = [];
-
-		// すぐ1匹出す
-		this.spawnEnemy();
-
-		// 敵のタイマー
-		this.time.addEvent({
-			delay: 700,
-			callback: () => {
-				const count = Phaser.Math.Between(1, 2);
-				for (let i = 0; i < count; i++) {
-					this.spawnEnemy();
-				}
-			},
-			callbackScope: this,
-			loop: true,
-		});
-
-		// ゴールライン（地上）
-		// --- Goal ---
-		this.goalLine = this.add.rectangle(400, 40, 800, 20, 0x00aa00);
+        // オープニングを表示
+        this.showOpening();
 	}
+
+	// オープニング（ストーリー）を表示する関数
+    showOpening() {
+        const { width, height } = this.scale;
+
+        // 1. 背景を少し暗くする
+        const overlay = this.add.rectangle(width/2, height/2, width, height, 0x000000, 0.7)
+            .setDepth(2000); // 最前面に
+
+        // 2. ストーリーテキスト
+        const storyText =
+            "ある日、一塊のコンニャクイモが\n" +
+            "土の中で目を覚ました。\n\n" +
+            "「僕は……立派なおでんになりたい！」\n\n" +
+            "まだ見ぬ地上（鍋）を目指して、\n" +
+            "コンニャクの冒険が今、始まる――！";
+
+        const textObj = this.add.text(width/2, height/2 - 20, storyText, {
+            fontFamily: 'sans-serif',
+            fontSize: '24px',
+            color: '#ffffff',
+            align: 'center',
+            lineSpacing: 10
+        }).setOrigin(0.5).setDepth(2001);
+
+        // 3. 「Spaceでスタート」の点滅テキスト
+        const startMsg = this.add.text(width/2, height - 80, 'Spaceキーでスタート', {
+            fontFamily: 'monospace',
+            fontSize: '20px',
+            color: '#ffff00'
+        }).setOrigin(0.5).setDepth(2001);
+
+        // 点滅アニメーション
+        this.tweens.add({
+            targets: startMsg,
+            alpha: 0,
+            duration: 600,
+            yoyo: true,
+            repeat: -1
+        });
+
+        // 4. Spaceキー入力待ち（1回だけ反応）
+        this.input.keyboard.once('keydown-SPACE', () => {
+            // モーダル類を消す
+            overlay.destroy();
+            textObj.destroy();
+            startMsg.destroy();
+
+            // ゲーム本編を開始
+            this.startGame();
+        });
+    }
+
+    // ゲーム本編を開始する関数
+    startGame() {
+        this.isGameStarted = true;
+
+        this.showStageBanner('Stage1：畑から脱出');
+        this.showControls('←↑→↓ 移動 / R リスタート / T タイトル');
+
+        // 敵の出現ループを開始（createから移動してきました）
+        this.spawnEnemy(); // すぐ1匹
+
+        this.time.addEvent({
+            delay: 700,
+            callback: () => {
+                // ゲームオーバーやクリア時は出さない
+                if (this.gameOver || this.cleared) return;
+
+                const count = Phaser.Math.Between(1, 2);
+                for (let i = 0; i < count; i++) {
+                    this.spawnEnemy();
+                }
+            },
+            callbackScope: this,
+            loop: true,
+        });
+    }
 
 	// *******************
 	// update
@@ -156,7 +169,8 @@ export class Stage1 extends BaseStage {
 		// 共通キー処理
 		this.updateCommonKeys();
 
-		if (this.gameOver || this.cleared) return;
+		// ゲームが始まっていない、または終了していたら動かさない
+        if (!this.isGameStarted || this.gameOver || this.cleared) return;
 
 		const dt = delta / 1000;
 		const speed = 70;  // プレイヤー移動速度
@@ -262,6 +276,43 @@ export class Stage1 extends BaseStage {
 		}
 	}
 
+	// --- 石の配置処理（createが長くなるので切り出し） ---
+    setupTraps() {
+        const rockKeys = ['rock1', 'rock2', 'rock3', 'rock4', 'rock5', 'rock6'];
+        const rockScales = [0.08, 0.10, 0.12];
+
+        const addTrap = (x, y) => {
+            const key = Phaser.Utils.Array.GetRandom(rockKeys);
+            const trap = this.add.image(x, y, key);
+            trap.setOrigin(0.5, 0.5);
+            trap.setScale(Phaser.Utils.Array.GetRandom(rockScales));
+            this.traps.push(trap);
+        };
+
+        const layerYs = [490, 380, 370, 260, 150];
+        const trapPlan = [
+            { y: layerYs[0], count: 1, ensureCenter: true },
+            { y: layerYs[1], count: 3, ensureCenter: true },
+            { y: layerYs[2], count: 2, ensureCenter: true },
+            { y: layerYs[3], count: 3, ensureCenter: true },
+            { y: layerYs[4], count: 6, ensureCenter: false },
+        ];
+
+        const CENTER_X = 400;
+        const CENTER_MARGIN = 40;
+
+        trapPlan.forEach(layer => {
+            for (let i = 0; i < layer.count; i++) {
+                const x = Phaser.Math.Between(80, 720);
+                addTrap(x, layer.y);
+            }
+            if (layer.ensureCenter) {
+                const x = Phaser.Math.Between(CENTER_X - CENTER_MARGIN, CENTER_X + CENTER_MARGIN);
+                addTrap(x, layer.y);
+            }
+        });
+    }
+
 	// ===================================
 	// ヘルパーメソッド群
 	// ===================================
@@ -306,7 +357,7 @@ export class Stage1 extends BaseStage {
 
 	// 敵生成（モグラ＝下、虫＝上）
 	spawnEnemy() {
-		if (this.gameOver || this.cleared) return;
+		if (!this.isGameStarted || this.gameOver || this.cleared) return;
 
 		// 左から来るか右から来るか
 		const fromLeft = Phaser.Math.Between(0, 1) === 0;

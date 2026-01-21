@@ -14,20 +14,18 @@ export class Stage3 extends BaseStage {
 	// *******************
 	preload() {
 		this.load.image('hero_konnyaku', 'assets/hero_processed.png');
-		this.load.image('basket', 'assets/basket.png'); // すでにあるなら確認用
+		this.load.image('basket', 'assets/basket.png');
 	}
 
 	// *******************
 	// create
 	// *******************
 	create() {
-		this.showStageBanner('Stage3：買い物カゴを避けろ');
+		// ★追加：ゲーム開始フラグ
+		this.isGameStarted = false;
 
-		// 青空っぽい色
+		// 背景色を設定
 		this.cameras.main.setBackgroundColor('#87ceeb');
-
-		// 操作説明表示
-		this.showControls('←→ 移動 / R リスタート / T タイトル　【敵に当たらず60秒逃げ切れ！】');
 
 		// 共通キー設定
 		this.setupCommonKeys();
@@ -38,7 +36,6 @@ export class Stage3 extends BaseStage {
 
 		// タイマー（60秒生存）
 		this.surviveMs = 60_000;
-		this.startTime = this.time.now;
 
 		// ===== 地面 =====
 		const groundY = 520;
@@ -76,18 +73,79 @@ export class Stage3 extends BaseStage {
 			{ fontSize: '18px', color: '#000', padding: { top: 6, bottom: 2 } }
 		).setScrollFactor(0);
 
-		// ===== スポーン制御（わちゃわちゃ感） =====
-		// 最初はゆっくり → 徐々に頻度UP
-		this.spawnDelay = 1500;     // 初期の間隔(ms)
-		this.spawnDelayMin = 500;  // 下限
-		this.spawnStep = 80;       // 1回ごとの短縮
+		// スポーンイベントの変数の初期値
+		this.spawnDelay = 1500;
+		this.spawnDelayMin = 500;
+		this.spawnStep = 80;
+
+		this.damageEnabled = false; // 無敵モード用（★デバッグ用）
+
+		// オープニングへ
+		this.showOpening();
+	}
+
+	// オープニング表示
+	showOpening() {
+		const { width, height } = this.scale;
+
+		const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7)
+			.setDepth(2000);
+
+		const storyText =
+			"コンニャクイモが目を覚ますと、\n" +
+			"そこはスーパーマーケットだった！\n\n" +
+			"「あれ？僕、もしかして……\n" +
+			"コンニャクに加工されちゃったの！？」\n\n" +
+			"次々と降ってくる買い物カゴを避け、\n" +
+			"60秒間、売り場から逃げ続けろ！";
+
+		const textObj = this.add.text(width / 2, height / 2 - 20, storyText, {
+			fontFamily: 'sans-serif',
+			fontSize: '24px',
+			color: '#ffffff',
+			align: 'center',
+			lineSpacing: 10
+		}).setOrigin(0.5).setDepth(2001);
+
+		const startMsg = this.add.text(width / 2, height - 80, 'Spaceキーでスタート', {
+			fontFamily: 'monospace',
+			fontSize: '20px',
+			color: '#ffff00'
+		}).setOrigin(0.5).setDepth(2001);
+
+		this.tweens.add({
+			targets: startMsg,
+			alpha: 0,
+			duration: 600,
+			yoyo: true,
+			repeat: -1
+		});
+
+		this.input.keyboard.once('keydown-SPACE', () => {
+			overlay.destroy();
+			textObj.destroy();
+			startMsg.destroy();
+			this.startGame();
+		});
+	}
+
+	// ゲーム開始処理
+	startGame() {
+		this.isGameStarted = true;
+
+		// バナー表示
+		this.showStageBanner('Stage3：買い物カゴを避けろ');
+		this.showControls('←→ 移動 / R リスタート / T タイトル　【敵に当たらず60秒逃げ切れ！】');
+
+		// タイマーの基準時間をセット
+		this.startTime = this.time.now;
+
+		// スポーンイベント開始
 		this.spawnEvent = this.time.addEvent({
 			delay: this.spawnDelay,
 			loop: true,
 			callback: () => this.spawnBasket(),
 		});
-
-		this.damageEnabled = false; // 無敵モード用（★デバッグ用）
 	}
 
 	// *******************
@@ -98,7 +156,7 @@ export class Stage3 extends BaseStage {
 		this.updateCommonKeys();
 
 		// 終了中は止める（見た目も挙動も固定）
-		if (this.isGameOver || this.isCleared) {
+		if (!this.isGameStarted || this.isGameOver || this.isCleared) {
 			return;
 		}
 

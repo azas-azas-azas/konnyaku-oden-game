@@ -66,7 +66,7 @@ export class Stage4 extends BaseStage {
 
 		// ダイコンボス
 		this.load.image('daikon_boss', 'assets/daikon_boss.png');
-		
+
 		// 鍋（ゴール）
 		this.load.image('pot', 'assets/pot.png');
 	}
@@ -75,13 +75,11 @@ export class Stage4 extends BaseStage {
 	// create
 	// *******************
 	create() {
-		this.showStageBanner('Stage4：先輩具材の試練');
+		// ゲーム開始フラグ
+		this.isGameStarted = false;
 
-		// 青空っぽい色
+		// 背景色を設定
 		this.cameras.main.setBackgroundColor('#87ceeb');
-
-		// 操作説明表示
-		this.showControls('←→ 移動 / R リスタート / T タイトル　【おでん鍋を目指せ！】');
 
 		// 共通キー設定
 		this.setupCommonKeys();
@@ -172,22 +170,10 @@ export class Stage4 extends BaseStage {
 			strokeThickness: 5,
 		}).setOrigin(0.5).setDepth(150);
 
-		// タイマー開始
-		this.startTime = this.time.now;
-
-		// 一定間隔でスポーン（フェーズで中身を切り替える）
-		this.spawnEvent = this.time.addEvent({
-			delay: 900,
-			loop: true,
-			callback: () => this.spawnByPhase(),
-		});
-
-		// 進行管理（軽めに頻繁チェック）
-		this.phaseEvent = this.time.addEvent({
-			delay: 200,
-			loop: true,
-			callback: () => this.updatePhaseAndGoal(),
-		});		
+		// タイマー開始とイベント登録用の変数初期化
+		this.startTime = 0;
+		this.spawnEvent = null;
+		this.phaseEvent = null;
 
 		// --- 鍋（表示用） ---
 		this.pot = this.add.image(width - 120, height - 210, 'pot');
@@ -196,7 +182,7 @@ export class Stage4 extends BaseStage {
 		this.pot.setDepth(2); // 鍋は奥
 
 		// --- 鍋の「中だけ」に当たり判定（見えないZone） ---
-		
+
 		// 先にサイズと位置を計算してしまう
 		const zoneW = this.pot.displayWidth * 0.32;
 		const zoneH = this.pot.displayHeight * 0.10;
@@ -207,10 +193,10 @@ export class Stage4 extends BaseStage {
 
 		// 計算した位置(zoneX, zoneY)とサイズ(zoneW, zoneH)を指定して生成する
 		this.goalZone = this.add.zone(zoneX, zoneY, zoneW, zoneH);
-		
+
 		// Static Bodyとして物理演算に追加
 		this.physics.add.existing(this.goalZone, true);
-		
+
 		this.goalZone.setVisible(false);
 
 		// 「中に入ったら」判定
@@ -236,8 +222,85 @@ export class Stage4 extends BaseStage {
 			{ fontSize: '16px', color: '#000' , padding: { top: 6, bottom: 2 }}
 		 );
 
+		// オープニングへ
+		this.showOpening();
+
 		// デバッグ表示（必要ならtrue/falseで切り替え）
 //		this.physics.world.createDebugGraphic();
+	}
+
+	// オープニング表示
+	showOpening() {
+		const { width, height } = this.scale;
+
+		const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7)
+			.setDepth(2000);
+
+		const storyText =
+			"懸命の逃走も虚しく、\n" +
+			"ついに買われてしまったコンニャク。\n\n" +
+			"しかし、まな板の上の恐怖を越えれば、\n" +
+			"そこには憧れの「おでん鍋」が待っている！\n\n" +
+			"「僕は……最高のおでんになるんだ！」\n\n" +
+			"最後の力を振り絞り、\n" +
+			"先輩具材たちの猛攻をくぐり抜けろ！";
+
+		const textObj = this.add.text(width / 2, height / 2 - 20, storyText, {
+			fontFamily: 'sans-serif',
+			fontSize: '24px',
+			color: '#ffffff',
+			align: 'center',
+			lineSpacing: 10
+		}).setOrigin(0.5).setDepth(2001);
+
+		const startMsg = this.add.text(width / 2, height - 80, 'Spaceキーでスタート', {
+			fontFamily: 'monospace',
+			fontSize: '20px',
+			color: '#ffff00'
+		}).setOrigin(0.5).setDepth(2001);
+
+		this.tweens.add({
+			targets: startMsg,
+			alpha: 0,
+			duration: 600,
+			yoyo: true,
+			repeat: -1
+		});
+
+		this.input.keyboard.once('keydown-SPACE', () => {
+			overlay.destroy();
+			textObj.destroy();
+			startMsg.destroy();
+			this.startGame();
+		});
+	}
+
+	// ゲーム開始処理
+	startGame() {
+		this.showStageBanner('Stage4：先輩具材の試練');
+		this.showControls('←→ 移動 / R リスタート / T タイトル　【おでん鍋を目指せ！】');
+
+		// タイマー開始
+		this.startTime = this.time.now;
+
+		// スポーンイベント開始
+		this.spawnEvent = this.time.addEvent({
+			delay: 900,
+			loop: true,
+			callback: () => this.spawnByPhase(),
+		});
+
+		// フェーズ進行管理開始
+		this.phaseEvent = this.time.addEvent({
+			delay: 200,
+			loop: true,
+			callback: () => this.updatePhaseAndGoal(),
+		});
+
+		// Spaceキーの暴発を防ぐため、0.2秒待ってから操作を受け付ける
+		this.time.delayedCall(200, () => {
+			this.isGameStarted = true;
+		});
 	}
 
 	// *******************
@@ -248,7 +311,7 @@ export class Stage4 extends BaseStage {
 		this.updateCommonKeys();
 
 		// ゲームオーバーなら更新処理を一切しない
-		if (this.isGameOver) return;
+		if (!this.isGameStarted || this.isGameOver) return;
 
 		const { width, height } = this.scale;
 
@@ -513,16 +576,16 @@ export class Stage4 extends BaseStage {
 		this.physics.add.overlap(this.player, this.bossBullets, (player, bullet) => {
 			if (!bullet.active) return;
 			bullet.destroy();
-			
+
 			// プレイヤーのダメージ処理（既存のメソッドを呼ぶ）
-			this.hitObstacle(null); 
+			this.hitObstacle(null);
 		});
 
 		// --- 登場演出 ---
 		// 画面右の定位置（ホームポジション）
-		const homeX = width - 300; 
+		const homeX = width - 300;
 		// 攻撃時に迫ってくる位置（だいぶ左まで来る）
-		const attackX = width - 450; 
+		const attackX = width - 450;
 
 		this.tweens.add({
 			targets: this.boss,
@@ -564,7 +627,7 @@ export class Stage4 extends BaseStage {
 						if (!this.boss || !this.boss.active || this.isGameOver) return;
 						this.fireBossBullets();
 					}
-				});				
+				});
 			}
 		});
 
@@ -620,11 +683,11 @@ export class Stage4 extends BaseStage {
 				bullet.setActive(true).setVisible(true);
 				bullet.body.enable = true;
 				bullet.body.setAllowGravity(false); // 重力なし
-				
+
 				// 角度をベクトルに変換して飛ばす
 				const rad = Phaser.Math.DegToRad(angle);
 				this.physics.velocityFromRotation(rad, speed, bullet.body.velocity);
-				
+
 				// 3秒で消す
 				this.time.delayedCall(3000, () => {
 					if (bullet.active) bullet.destroy();
@@ -664,7 +727,7 @@ export class Stage4 extends BaseStage {
 
 		// 共通演出：ヒットストップ的揺れ
 		this.cameras.main.shake(80, 0.004);
-		
+
 		// ライフに応じた色変化（Tint）
 		if (this.hp === 1) {
 			// 1回当たった（残り1）：濃い青（ピンチ感）
@@ -691,7 +754,7 @@ export class Stage4 extends BaseStage {
 	}
 
 	// ボス撃破時の処理
-	defeatBoss() {		
+	defeatBoss() {
 		if (this.boss) {
 			this.boss.destroy();
 			this.boss = null; // 変数も空にしておく
@@ -723,7 +786,7 @@ export class Stage4 extends BaseStage {
 
 		// 鍋表示（ボスがいる時でも、鍋自体は見えていたほうが「守ってる感」が出ます）
 		this.pot.setVisible(true);
-		
+
 		// 隙間をくぐればクリアできる状態
 		this.goalZone.body.enable = true;
 	}
