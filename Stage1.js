@@ -83,6 +83,10 @@ export class Stage1 extends BaseStage {
 		// ゴールライン
 		this.goalLine = this.add.rectangle(400, 40, 800, 20, 0x00aa00); // 判定には使いませんが飾りとして
 
+		// スワイプ用
+		this.swipeStart = null;
+		this.swipeVector = { x: 0, y: 0 };
+
 		// BGMを準備（まだ再生しない）
 		this.bgm = this.sound.add('bgm', {
 			loop: true,
@@ -166,27 +170,29 @@ export class Stage1 extends BaseStage {
 		this.showStageBanner('Stage1：畑から脱出');
 		this.showControls('←↑→↓ 移動 / R リスタート / T タイトル');
 
-		// スマホ用：タップ位置を覚えておく
+		// スマホ用：タッチ状態を管理
 		if (!this.sys.game.device.os.desktop) {
 			this.pointerIsDown = false;
 			this.pointerPos = { x: 0, y: 0 };
 
+			// タッチ開始
 			this.input.on('pointerdown', (pointer) => {
-				// ゲーム中だけ反応させる
 				if (!this.isGameStarted || this.gameOver || this.cleared) return;
 				this.pointerIsDown = true;
 				this.pointerPos.x = pointer.x;
 				this.pointerPos.y = pointer.y;
 			});
 
-			this.input.on('pointerup', () => {
-				this.pointerIsDown = false;
-			});
-
+			// タッチ移動
 			this.input.on('pointermove', (pointer) => {
 				if (!this.pointerIsDown) return;
 				this.pointerPos.x = pointer.x;
 				this.pointerPos.y = pointer.y;
+			});
+
+			// タッチ終了
+			this.input.on('pointerup', () => {
+				this.pointerIsDown = false;
 			});
 		}
 
@@ -220,49 +226,50 @@ export class Stage1 extends BaseStage {
 		if (!this.isGameStarted || this.gameOver || this.cleared) return;
 
 		const dt = delta / 1000;
-		const speed = 70;  // プレイヤー移動速度
+		const baseSpeed = 70;  // プレイヤー移動速度
 
 		let vx = 0;
 		let vy = 0;
 		let moving = false; // ← 動いているか判定
 
-		// --- PC用：キーボード入力 ---
-		if (this.cursors.left.isDown) {
-			vx = -speed;
-			moving = true;
-		} else if (this.cursors.right.isDown) {
-			vx = speed;
-			moving = true;
-		}
-
-		if (this.cursors.up.isDown) {
-			vy = -speed;
-			moving = true;
-		} else if (this.cursors.down.isDown) {
-			vy = speed;
-			moving = true;
-		}
-
-		// --- スマホ用：タップ位置から方向を決める ---
-		if (!this.sys.game.device.os.desktop && this.pointerIsDown) {
-			const { width, height } = this.scale;
-			const px = this.pointerPos.x;
-			const py = this.pointerPos.y;
-
-			// 画面中央を基準にシンプルな十字キーっぽく分割
-			if (px < width * 0.4) {
-				vx = -speed;
+		// --- キーボード入力（PC用） ---
+		// ※デバイス判定しないで、カーソルキーがあれば常に見る
+		if (this.cursors) {
+			if (this.cursors.left.isDown) {
+				vx = -baseSpeed;
 				moving = true;
-			} else if (px > width * 0.6) {
-				vx = speed;
+			} else if (this.cursors.right.isDown) {
+				vx = baseSpeed;
 				moving = true;
 			}
 
-			if (py < height * 0.4) {
-				vy = -speed;
+			if (this.cursors.up.isDown) {
+				vy = -baseSpeed;
 				moving = true;
-			} else if (py > height * 0.6) {
-				vy = speed;
+			} else if (this.cursors.down.isDown) {
+				vy = baseSpeed;
+				moving = true;
+			}
+		}
+
+		// --- タッチ入力（スマホ用） ---
+		// pointerIsDown が true のときだけ、指の方向に上書き
+		if (this.pointerIsDown) {
+			const px = this.pointerPos.x;
+			const py = this.pointerPos.y;
+
+			// プレイヤー位置との向きベクトルを計算
+			const dx = px - this.player.x;
+			const dy = py - this.player.y;
+
+			const len = Math.hypot(dx, dy);
+
+			if (len > 5) { // 近すぎるときは動かない
+				const nx = dx / len;
+				const ny = dy / len;
+
+				vx = nx * baseSpeed;
+				vy = ny * baseSpeed;
 				moving = true;
 			}
 		}
