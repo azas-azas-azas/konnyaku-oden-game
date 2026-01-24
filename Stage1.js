@@ -166,6 +166,30 @@ export class Stage1 extends BaseStage {
 		this.showStageBanner('Stage1：畑から脱出');
 		this.showControls('←↑→↓ 移動 / R リスタート / T タイトル');
 
+		// スマホ用：タップ位置を覚えておく
+		if (!this.sys.game.device.os.desktop) {
+			this.pointerIsDown = false;
+			this.pointerPos = { x: 0, y: 0 };
+
+			this.input.on('pointerdown', (pointer) => {
+				// ゲーム中だけ反応させる
+				if (!this.isGameStarted || this.gameOver || this.cleared) return;
+				this.pointerIsDown = true;
+				this.pointerPos.x = pointer.x;
+				this.pointerPos.y = pointer.y;
+			});
+
+			this.input.on('pointerup', () => {
+				this.pointerIsDown = false;
+			});
+
+			this.input.on('pointermove', (pointer) => {
+				if (!this.pointerIsDown) return;
+				this.pointerPos.x = pointer.x;
+				this.pointerPos.y = pointer.y;
+			});
+		}
+
 		// 敵の出現ループを開始（createから移動してきました）
 		this.spawnEnemy(); // すぐ1匹
 
@@ -202,7 +226,7 @@ export class Stage1 extends BaseStage {
 		let vy = 0;
 		let moving = false; // ← 動いているか判定
 
-		// --- 入力処理 ---
+		// --- PC用：キーボード入力 ---
 		if (this.cursors.left.isDown) {
 			vx = -speed;
 			moving = true;
@@ -217,6 +241,30 @@ export class Stage1 extends BaseStage {
 		} else if (this.cursors.down.isDown) {
 			vy = speed;
 			moving = true;
+		}
+
+		// --- スマホ用：タップ位置から方向を決める ---
+		if (!this.sys.game.device.os.desktop && this.pointerIsDown) {
+			const { width, height } = this.scale;
+			const px = this.pointerPos.x;
+			const py = this.pointerPos.y;
+
+			// 画面中央を基準にシンプルな十字キーっぽく分割
+			if (px < width * 0.4) {
+				vx = -speed;
+				moving = true;
+			} else if (px > width * 0.6) {
+				vx = speed;
+				moving = true;
+			}
+
+			if (py < height * 0.4) {
+				vy = -speed;
+				moving = true;
+			} else if (py > height * 0.6) {
+				vy = speed;
+				moving = true;
+			}
 		}
 
 		// --- 1) X方向の移動（衝突チェック付き） ---
@@ -441,9 +489,7 @@ export class Stage1 extends BaseStage {
 		this.gameOver = true;
 
 		// BGMを止める
-		if (this.bgm && this.bgm.isPlaying) {
-			this.bgm.stop();
-		}
+		this.stopBgm();
 
 		// ゲームオーバー表示
 		this.showGameOver();
@@ -459,9 +505,7 @@ export class Stage1 extends BaseStage {
 		this.showGameClear(1);
 
 		// クリア時もBGM停止
-		if (this.bgm && this.bgm.isPlaying) {
-			this.bgm.stop();
-		}
+		this.stopBgm();
 
 		this.time.delayedCall(3000, () => {
 			this.scene.start('Stage2');
