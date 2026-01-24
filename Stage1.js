@@ -37,6 +37,8 @@ export class Stage1 extends BaseStage {
 
 		// BGMを追加
 		this.load.audio('bgm', 'assets/audio/Stage1-bgm.mp3');
+		this.load.audio('explosion', 'assets/audio/explosion.mp3');
+		this.load.audio('goal', 'assets/audio/goal.mp3');
 	}
 
 	// *******************
@@ -45,6 +47,10 @@ export class Stage1 extends BaseStage {
 	create() {
 		// ゲーム開始フラグ
 		this.isGameStarted = false;
+
+		// 端末判定＆スマホ用入力フラグ
+		this.isMobile = !this.sys.game.device.os.desktop;
+		this.mobileInput = { left: false, right: false, up: false, down: false };
 
 		// 背景色の設定
 		this.cameras.main.setBackgroundColor('#87ceeb');
@@ -83,14 +89,22 @@ export class Stage1 extends BaseStage {
 		// ゴールライン
 		this.goalLine = this.add.rectangle(400, 40, 800, 20, 0x00aa00); // 判定には使いませんが飾りとして
 
-		// スワイプ用
-		this.swipeStart = null;
-		this.swipeVector = { x: 0, y: 0 };
-
 		// BGMを準備（まだ再生しない）
 		this.bgm = this.sound.add('bgm', {
 			loop: true,
 			volume: 0.3
+		});
+
+		// 爆発音（SE）
+		this.explosionSe = this.sound.add('explosion', {
+			loop: false,
+			volume: 0.4, // 好みで調整
+		});
+
+		// ゴールSE
+		this.goalSe = this.sound.add('goal', {
+			loop: false,
+			volume: 0.4, // 好みで微調整
 		});
 
 		// オープニングを表示
@@ -170,30 +184,9 @@ export class Stage1 extends BaseStage {
 		this.showStageBanner('Stage1：畑から脱出');
 		this.showControls('←↑→↓ 移動 / R リスタート / T タイトル');
 
-		// スマホ用：タッチ状態を管理
-		if (!this.sys.game.device.os.desktop) {
-			this.pointerIsDown = false;
-			this.pointerPos = { x: 0, y: 0 };
-
-			// タッチ開始
-			this.input.on('pointerdown', (pointer) => {
-				if (!this.isGameStarted || this.gameOver || this.cleared) return;
-				this.pointerIsDown = true;
-				this.pointerPos.x = pointer.x;
-				this.pointerPos.y = pointer.y;
-			});
-
-			// タッチ移動
-			this.input.on('pointermove', (pointer) => {
-				if (!this.pointerIsDown) return;
-				this.pointerPos.x = pointer.x;
-				this.pointerPos.y = pointer.y;
-			});
-
-			// タッチ終了
-			this.input.on('pointerup', () => {
-				this.pointerIsDown = false;
-			});
+		// スマホ用：画面下に矢印ボタンを表示
+		if (this.isMobile) {
+			this.createMobileControls();
 		}
 
 		// 敵の出現ループを開始（createから移動してきました）
@@ -215,6 +208,53 @@ export class Stage1 extends BaseStage {
 		});
 	}
 
+	// スマホ用：画面下に矢印ボタンを作る
+	createMobileControls() {
+		const { width, height } = this.scale;
+
+		// ベース位置（下から少し上）
+		const baseY = height - 70;
+		const size = 60;
+
+		// 共通で使うボタン生成ヘルパー
+		const makeButton = (x, y, label, key) => {
+			const bg = this.add.rectangle(x, y, size, size, 0x000000, 0.4)
+				.setDepth(1000)
+				.setScrollFactor(0)
+				.setInteractive();
+
+			const txt = this.add.text(x, y, label, {
+				fontFamily: 'sans-serif',
+				fontSize: '28px',
+				color: '#ffffff',
+			})
+			.setOrigin(0.5)
+			.setDepth(1001)
+			.setScrollFactor(0);
+
+			bg.on('pointerdown', () => {
+				if (!this.isGameStarted || this.gameOver || this.cleared) return;
+				this.mobileInput[key] = true;
+			});
+
+			// 指が離れた / 外に出たときは止める
+			const clear = () => {
+				this.mobileInput[key] = false;
+			};
+			bg.on('pointerup', clear);
+			bg.on('pointerout', clear);
+			bg.on('pointerupoutside', clear);
+		};
+
+		// 配置イメージ：
+		//       ↑
+		//   ←   ↓   →
+		makeButton(width / 2 - size, baseY, '←', 'left');
+		makeButton(width / 2 + size, baseY, '→', 'right');
+		makeButton(width / 2,        baseY - size, '↑', 'up');
+		makeButton(width / 2,        baseY + size, '↓', 'down');
+	}
+
 	// *******************
 	// update
 	// *******************
@@ -232,8 +272,7 @@ export class Stage1 extends BaseStage {
 		let vy = 0;
 		let moving = false; // ← 動いているか判定
 
-		// --- キーボード入力（PC用） ---
-		// ※デバイス判定しないで、カーソルキーがあれば常に見る
+		// --- PC用：キーボード入力 ---
 		if (this.cursors) {
 			if (this.cursors.left.isDown) {
 				vx = -baseSpeed;
@@ -252,24 +291,26 @@ export class Stage1 extends BaseStage {
 			}
 		}
 
-		// --- タッチ入力（スマホ用） ---
-		// pointerIsDown が true のときだけ、指の方向に上書き
-		if (this.pointerIsDown) {
-			const px = this.pointerPos.x;
-			const py = this.pointerPos.y;
+		// --- スマホ用：画面下の矢印ボタン入力 ---
+		if (this.isMobile && this.mobileInput) {
+			// 一旦リセットして「ボタン優先」にしたい場合は、コメントアウト外す
+			// vx = 0;
+			// vy = 0;
+			// moving = false;
 
-			// プレイヤー位置との向きベクトルを計算
-			const dx = px - this.player.x;
-			const dy = py - this.player.y;
+			if (this.mobileInput.left) {
+				vx = -baseSpeed;
+				moving = true;
+			} else if (this.mobileInput.right) {
+				vx = baseSpeed;
+				moving = true;
+			}
 
-			const len = Math.hypot(dx, dy);
-
-			if (len > 5) { // 近すぎるときは動かない
-				const nx = dx / len;
-				const ny = dy / len;
-
-				vx = nx * baseSpeed;
-				vy = ny * baseSpeed;
+			if (this.mobileInput.up) {
+				vy = -baseSpeed;
+				moving = true;
+			} else if (this.mobileInput.down) {
+				vy = baseSpeed;
 				moving = true;
 			}
 		}
@@ -498,6 +539,11 @@ export class Stage1 extends BaseStage {
 		// BGMを止める
 		this.stopBgm();
 
+		// 爆発音を1回鳴らす
+		if (this.explosionSe) {
+			this.explosionSe.play();
+		}
+		
 		// ゲームオーバー表示
 		this.showGameOver();
 	}
@@ -508,13 +554,18 @@ export class Stage1 extends BaseStage {
 
 		this.cleared = true;
 
-		// クリア表示
-		this.showGameClear(1);
-
 		// クリア時もBGM停止
 		this.stopBgm();
 
-		this.time.delayedCall(3000, () => {
+		// ゴール音を1回だけ鳴らす
+		if (this.goalSe) {
+			this.goalSe.play();
+		}
+
+		// クリア表示
+		this.showGameClear(1);
+
+		this.time.delayedCall(5000, () => {
 			this.scene.start('Stage2');
 		});
 	}
