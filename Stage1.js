@@ -34,6 +34,9 @@ export class Stage1 extends BaseStage {
 		// こんにゃくいも画像を追加
 		this.load.image('hero_left', basePath + 'hero_left.png');
 		this.load.image('hero_right', basePath + 'hero_right.png');
+
+		// BGMを追加
+		this.load.audio('bgm', 'assets/audio/Stage1-bgm.mp3');
 	}
 
 	// *******************
@@ -43,124 +46,144 @@ export class Stage1 extends BaseStage {
 		// ゲーム開始フラグ
 		this.isGameStarted = false;
 
-        // 背景色の設定
-        this.cameras.main.setBackgroundColor('#87ceeb');
+		// 背景色の設定
+		this.cameras.main.setBackgroundColor('#87ceeb');
 
-        // 共通キー設定
-        this.setupCommonKeys();
+		// 共通キー設定
+		this.setupCommonKeys();
 
-        // --- State ---
-        this.gameOver = false;
-        this.cleared = false;
+		// --- State ---
+		this.gameOver = false;
+		this.cleared = false;
 
-        // 地層背景
-        this.drawSoilLayers();
+		// 地層背景
+		this.drawSoilLayers();
 
-        // トラップ（石画像）を配置
-        this.traps = [];
-        this.setupTraps(); // ※石の配置処理は見やすいように別関数に分けました（後述）
+		// トラップ（石画像）を配置
+		this.traps = [];
+		this.setupTraps(); // ※石の配置処理は見やすいように別関数に分けました（後述）
 
-        // プレイヤーサイズ
-        this.playerSize = 40;
+		// プレイヤーサイズ
+		this.playerSize = 40;
 
-        // プレイヤー配置
-        this.player = this.add.sprite(400, 550, 'hero_left');
-        this.player.setScale(0.03);
+		// プレイヤー配置
+		this.player = this.add.sprite(400, 550, 'hero_left');
+		this.player.setScale(0.03);
 
-        // 入力
-        this.cursors = this.input.keyboard.createCursorKeys();
+		// 入力
+		this.cursors = this.input.keyboard.createCursorKeys();
 
-        // アニメーション用変数
-        this.playerAnimTimer = 0;
-        this.playerAnimState = 0;
+		// アニメーション用変数
+		this.playerAnimTimer = 0;
+		this.playerAnimState = 0;
 
-        // 敵の配列（初期化だけしておく）
-        this.enemies = [];
+		// 敵の配列（初期化だけしておく）
+		this.enemies = [];
 
-        // ゴールライン
-        this.goalLine = this.add.rectangle(400, 40, 800, 20, 0x00aa00); // 判定には使いませんが飾りとして
+		// ゴールライン
+		this.goalLine = this.add.rectangle(400, 40, 800, 20, 0x00aa00); // 判定には使いませんが飾りとして
 
-        // オープニングを表示
-        this.showOpening();
+		// BGMを準備（まだ再生しない）
+		this.bgm = this.sound.add('bgm', {
+			loop: true,
+			volume: 0.3
+		});
+
+		// オープニングを表示
+		this.showOpening();
 	}
 
 	// オープニング（ストーリー）を表示する関数
-    showOpening() {
-        const { width, height } = this.scale;
+	showOpening() {
+		const { width, height } = this.scale;
 
-        // 1. 背景を少し暗くする
-        const overlay = this.add.rectangle(width/2, height/2, width, height, 0x000000, 0.7)
-            .setDepth(2000); // 最前面に
+		// 1. 背景を少し暗くする
+		const overlay = this.add.rectangle(width/2, height/2, width, height, 0x000000, 0.7)
+			.setDepth(2000); // 最前面に
 
-        // 2. ストーリーテキスト
-        const storyText =
-            "ある日、一塊のコンニャクイモが\n" +
-            "土の中で目を覚ました。\n\n" +
-            "「僕は……立派なおでんになりたい！」\n\n" +
-            "まだ見ぬ地上（鍋）を目指して、\n" +
-            "コンニャクの冒険が今、始まる――！";
+		// 2. ストーリーテキスト
+		const storyText =
+			"ある日、一塊のコンニャクイモが\n" +
+			"土の中で目を覚ました。\n\n" +
+			"「僕は……立派なおでんになりたい！」\n\n" +
+			"まだ見ぬ地上（鍋）を目指して、\n" +
+			"コンニャクの冒険が今、始まる――！";
 
-        const textObj = this.add.text(width/2, height/2 - 20, storyText, {
-            fontFamily: 'sans-serif',
-            fontSize: '24px',
-            color: '#ffffff',
-            align: 'center',
-            lineSpacing: 10
-        }).setOrigin(0.5).setDepth(2001);
+		const textObj = this.add.text(width/2, height/2 - 20, storyText, {
+			fontFamily: 'sans-serif',
+			fontSize: '24px',
+			color: '#ffffff',
+			align: 'center',
+			lineSpacing: 10
+		}).setOrigin(0.5).setDepth(2001);
 
-        // 3. 「Spaceでスタート」の点滅テキスト
-        const startMsg = this.add.text(width/2, height - 80, 'Spaceキーでスタート', {
-            fontFamily: 'monospace',
-            fontSize: '20px',
-            color: '#ffff00'
-        }).setOrigin(0.5).setDepth(2001);
+		// 3. 「Spaceでスタート」の点滅テキスト
+		const startMsg = this.add.text(width/2, height - 80, 'Spaceキーでスタート', {
+			fontFamily: 'monospace',
+			fontSize: '20px',
+			color: '#ffff00'
+		}).setOrigin(0.5).setDepth(2001);
 
-        // 点滅アニメーション
-        this.tweens.add({
-            targets: startMsg,
-            alpha: 0,
-            duration: 600,
-            yoyo: true,
-            repeat: -1
-        });
+		// 点滅アニメーション
+		this.tweens.add({
+			targets: startMsg,
+			alpha: 0,
+			duration: 600,
+			yoyo: true,
+			repeat: -1
+		});
 
-        // 4. Spaceキー入力待ち（1回だけ反応）
-        this.input.keyboard.once('keydown-SPACE', () => {
-            // モーダル類を消す
-            overlay.destroy();
-            textObj.destroy();
-            startMsg.destroy();
+		// 共通の開始ハンドラ
+		const startHandler = () => {
+			// 二重起動防止
+			if (this.isGameStarted) return;
 
-            // ゲーム本編を開始
-            this.startGame();
-        });
-    }
+			// モーダル類を消す
+			overlay.destroy();
+			textObj.destroy();
+			startMsg.destroy();
 
-    // ゲーム本編を開始する関数
-    startGame() {
-        this.isGameStarted = true;
+			// BGMスタート
+			if (this.bgm && !this.bgm.isPlaying) {
+				this.bgm.play();
+			}
 
-        this.showStageBanner('Stage1：畑から脱出');
-        this.showControls('←↑→↓ 移動 / R リスタート / T タイトル');
+			// ゲーム本編を開始
+			this.startGame();
+		};
 
-        // 敵の出現ループを開始（createから移動してきました）
-        this.spawnEnemy(); // すぐ1匹
+		// 4. Spaceキー入力待ち（1回だけ反応）
+		this.input.keyboard.once('keydown-SPACE', startHandler);
 
-        this.time.addEvent({
-            delay: 700,
-            callback: () => {
-                // ゲームオーバーやクリア時は出さない
-                if (this.gameOver || this.cleared) return;
+		// 5. スマホ用：画面タップでも開始
+		this.input.once('pointerdown', startHandler);		
+	}
 
-                const count = Phaser.Math.Between(1, 2);
-                for (let i = 0; i < count; i++) {
-                    this.spawnEnemy();
-                }
-            },
-            callbackScope: this,
-            loop: true,
-        });
-    }
+	// ゲーム本編を開始する関数
+	startGame() {
+		this.isGameStarted = true;
+
+		this.showStageBanner('Stage1：畑から脱出');
+		this.showControls('←↑→↓ 移動 / R リスタート / T タイトル');
+
+		// 敵の出現ループを開始（createから移動してきました）
+		this.spawnEnemy(); // すぐ1匹
+
+		this.time.addEvent({
+			delay: 700,
+			callback: () => {
+				// ゲームオーバーやクリア時は出さない
+				if (this.gameOver || this.cleared) return;
+
+				const count = Phaser.Math.Between(1, 2);
+				for (let i = 0; i < count; i++) {
+					this.spawnEnemy();
+				}
+			},
+			callbackScope: this,
+			loop: true,
+		});
+	}
 
 	// *******************
 	// update
@@ -170,7 +193,7 @@ export class Stage1 extends BaseStage {
 		this.updateCommonKeys();
 
 		// ゲームが始まっていない、または終了していたら動かさない
-        if (!this.isGameStarted || this.gameOver || this.cleared) return;
+		if (!this.isGameStarted || this.gameOver || this.cleared) return;
 
 		const dt = delta / 1000;
 		const speed = 70;  // プレイヤー移動速度
@@ -277,41 +300,41 @@ export class Stage1 extends BaseStage {
 	}
 
 	// --- 石の配置処理（createが長くなるので切り出し） ---
-    setupTraps() {
-        const rockKeys = ['rock1', 'rock2', 'rock3', 'rock4', 'rock5', 'rock6'];
-        const rockScales = [0.08, 0.10, 0.12];
+	setupTraps() {
+		const rockKeys = ['rock1', 'rock2', 'rock3', 'rock4', 'rock5', 'rock6'];
+		const rockScales = [0.08, 0.10, 0.12];
 
-        const addTrap = (x, y) => {
-            const key = Phaser.Utils.Array.GetRandom(rockKeys);
-            const trap = this.add.image(x, y, key);
-            trap.setOrigin(0.5, 0.5);
-            trap.setScale(Phaser.Utils.Array.GetRandom(rockScales));
-            this.traps.push(trap);
-        };
+		const addTrap = (x, y) => {
+			const key = Phaser.Utils.Array.GetRandom(rockKeys);
+			const trap = this.add.image(x, y, key);
+			trap.setOrigin(0.5, 0.5);
+			trap.setScale(Phaser.Utils.Array.GetRandom(rockScales));
+			this.traps.push(trap);
+		};
 
-        const layerYs = [490, 380, 370, 260, 150];
-        const trapPlan = [
-            { y: layerYs[0], count: 1, ensureCenter: true },
-            { y: layerYs[1], count: 3, ensureCenter: true },
-            { y: layerYs[2], count: 2, ensureCenter: true },
-            { y: layerYs[3], count: 3, ensureCenter: true },
-            { y: layerYs[4], count: 6, ensureCenter: false },
-        ];
+		const layerYs = [490, 380, 370, 260, 150];
+		const trapPlan = [
+			{ y: layerYs[0], count: 1, ensureCenter: true },
+			{ y: layerYs[1], count: 3, ensureCenter: true },
+			{ y: layerYs[2], count: 2, ensureCenter: true },
+			{ y: layerYs[3], count: 3, ensureCenter: true },
+			{ y: layerYs[4], count: 6, ensureCenter: false },
+		];
 
-        const CENTER_X = 400;
-        const CENTER_MARGIN = 40;
+		const CENTER_X = 400;
+		const CENTER_MARGIN = 40;
 
-        trapPlan.forEach(layer => {
-            for (let i = 0; i < layer.count; i++) {
-                const x = Phaser.Math.Between(80, 720);
-                addTrap(x, layer.y);
-            }
-            if (layer.ensureCenter) {
-                const x = Phaser.Math.Between(CENTER_X - CENTER_MARGIN, CENTER_X + CENTER_MARGIN);
-                addTrap(x, layer.y);
-            }
-        });
-    }
+		trapPlan.forEach(layer => {
+			for (let i = 0; i < layer.count; i++) {
+				const x = Phaser.Math.Between(80, 720);
+				addTrap(x, layer.y);
+			}
+			if (layer.ensureCenter) {
+				const x = Phaser.Math.Between(CENTER_X - CENTER_MARGIN, CENTER_X + CENTER_MARGIN);
+				addTrap(x, layer.y);
+			}
+		});
+	}
 
 	// ===================================
 	// ヘルパーメソッド群
@@ -417,6 +440,12 @@ export class Stage1 extends BaseStage {
 
 		this.gameOver = true;
 
+		// BGMを止める
+		if (this.bgm && this.bgm.isPlaying) {
+			this.bgm.stop();
+		}
+
+		// ゲームオーバー表示
 		this.showGameOver();
 	}
 
@@ -428,6 +457,11 @@ export class Stage1 extends BaseStage {
 
 		// クリア表示
 		this.showGameClear(1);
+
+		// クリア時もBGM停止
+		if (this.bgm && this.bgm.isPlaying) {
+			this.bgm.stop();
+		}
 
 		this.time.delayedCall(3000, () => {
 			this.scene.start('Stage2');
