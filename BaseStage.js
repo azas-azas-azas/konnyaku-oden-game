@@ -77,6 +77,7 @@ export class BaseStage extends Phaser.Scene {
 			.setInteractive();
 
 			this.titleButton.on('pointerup', () => {
+				this.stopBgm();
 				this.goToTitle();
 			});
 
@@ -93,6 +94,7 @@ export class BaseStage extends Phaser.Scene {
 			.setInteractive();
 
 			this.restartButton.on('pointerup', () => {
+				this.stopBgm();
 				this.scene.restart();
 			});
 		}
@@ -100,9 +102,11 @@ export class BaseStage extends Phaser.Scene {
 
 	updateCommonKeys() {
 		if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
+			this.stopBgm();
 			this.scene.restart();
 		}
 		if (Phaser.Input.Keyboard.JustDown(this.keyT)) {
+			this.stopBgm();
 			this.goToTitle();
 		}
 	}
@@ -149,4 +153,12 @@ export class BaseStage extends Phaser.Scene {
 			fontSize: '40px',
 		});
 	}
+
+	// BGM停止（あれば止める）
+	stopBgm() {
+		if (this.bgm && this.bgm.isPlaying) {
+			this.bgm.stop();
+		}
+	}
+
 }
