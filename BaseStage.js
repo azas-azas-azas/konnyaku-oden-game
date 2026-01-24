@@ -25,16 +25,8 @@ export class BaseStage extends Phaser.Scene {
 	}
 
 	// 操作説明表示
-	showControls(textForDesktop) {
+	showControls(text) {
 		if (this.controlsText) this.controlsText.destroy();
-
-		// PC かどうかを判定（setupCommonKeys が先に呼ばれていれば this.isMobile が入っている想定）
-		const isMobile = this.isMobile ?? !this.sys.game.device.os.desktop;
-
-		// 端末ごとに表示する文言を分岐
-		const text = isMobile
-			? '画面タップで移動 / 画面下のボタンでリスタート / タイトル'
-			: textForDesktop;
 
 		this.controlsText = this.add.text(16, 12, text, {
 			fontFamily: 'sans-serif',
@@ -49,55 +41,12 @@ export class BaseStage extends Phaser.Scene {
 
 	// 共通キー設定（R: リスタート、T: タイトルへ）
 	setupCommonKeys() {
-		// 端末判定（create 中なので this.sys が使える）
-		this.isMobile = !this.sys.game.device.os.desktop;
-
-		// PC用：キーボード
 		this.keyR = this.input.keyboard.addKey(
 			Phaser.Input.Keyboard.KeyCodes.R
 		);
 		this.keyT = this.input.keyboard.addKey(
 			Phaser.Input.Keyboard.KeyCodes.T
 		);
-
-		// スマホ用：画面下ボタン
-		if (this.isMobile) {
-			const { width, height } = this.scale;
-
-			// タイトルへボタン（左下）
-			this.titleButton = this.add.text(20, height - 60, 'タイトルへ', {
-				fontFamily: 'sans-serif',
-				fontSize: '20px',
-				color: '#ffffff',
-				backgroundColor: '#000000aa',
-				padding: { left: 10, right: 10, top: 5, bottom: 5 },
-			})
-			.setDepth(1000)
-			.setScrollFactor(0)
-			.setInteractive();
-
-			this.titleButton.on('pointerup', () => {
-				this.stopBgm();
-				this.goToTitle();
-			});
-
-			// リスタートボタン（右下）
-			this.restartButton = this.add.text(width - 150, height - 60, 'リスタート', {
-				fontFamily: 'sans-serif',
-				fontSize: '20px',
-				color: '#ffffff',
-				backgroundColor: '#000000aa',
-				padding: { left: 10, right: 10, top: 5, bottom: 5 },
-			})
-			.setDepth(1000)
-			.setScrollFactor(0)
-			.setInteractive();
-
-			this.restartButton.on('pointerup', () => {
-				this.stopBgm();
-				this.scene.restart();
-			});
-		}
 	}
 
 	updateCommonKeys() {

@@ -24,7 +24,7 @@ export class Stage4 extends BaseStage {
 		this.invincibleUntil = 0;
 
 		// ★デバッグ用：無敵モード
-		this.damageEnabled = true;
+		this.damageEnabled = false;
 
 		// ボス管理用
 		this.boss = null;
@@ -69,6 +69,13 @@ export class Stage4 extends BaseStage {
 
 		// 鍋（ゴール）
 		this.load.image('pot', 'assets/pot.png');
+
+		// BGMを追加
+		this.load.audio('bgm', 'assets/audio/Stage4-bgm.mp3');
+		this.load.audio('explosion', 'assets/audio/explosion.mp3');
+		this.load.audio('goal', 'assets/audio/goal.mp3');
+		this.load.audio('damage', 'assets/audio/damage.mp3');
+		this.load.audio('shot', 'assets/audio/shot.mp3');
 	}
 
 	// *******************
@@ -222,6 +229,36 @@ export class Stage4 extends BaseStage {
 			{ fontSize: '16px', color: '#000' , padding: { top: 6, bottom: 2 }}
 		 );
 
+		// BGMを準備（まだ再生しない）
+		this.bgm = this.sound.add('bgm', {
+			loop: true,
+			volume: 0.1,
+		});
+
+		// 爆発音（SE）
+		this.explosionSe = this.sound.add('explosion', {
+			loop: false,
+			volume: 0.2,
+		});
+
+		// ゴールSE
+		this.goalSe = this.sound.add('goal', {
+			loop: false,
+			volume: 0.2,
+		});
+
+		// ダメージ音（SE）
+		this.damageSe = this.sound.add('damage', {
+			loop: false,
+			volume: 0.2,
+		});
+
+		// ショット音（SE）
+		this.shotSe = this.sound.add('shot', {
+			loop: false,
+			volume: 0.2,
+		});
+
 		// オープニングへ
 		this.showOpening();
 
@@ -271,6 +308,12 @@ export class Stage4 extends BaseStage {
 			overlay.destroy();
 			textObj.destroy();
 			startMsg.destroy();
+
+			// BGMスタート
+			if (this.bgm && !this.bgm.isPlaying) {
+				this.bgm.play();
+			}
+
 			this.startGame();
 		});
 	}
@@ -711,6 +754,9 @@ export class Stage4 extends BaseStage {
 		bullet.setDepth(30);
 		bullet.body.setAllowGravity(false);
 		bullet.setVelocityX(600);
+
+		// ショット音を鳴らす
+		this.shotSe.play();
 	}
 
 	// ダメージ処理
@@ -732,6 +778,9 @@ export class Stage4 extends BaseStage {
 		if (this.hp === 1) {
 			// 1回当たった（残り1）：濃い青（ピンチ感）
 			this.player.setTint(0x4444ff);
+			// ダメージ音を鳴らす
+			this.damageSe.play();
+
 		} else if (this.hp <= 0) {
 			// 2回当たった（残り0）：赤
 			this.player.setTint(0xff0000);
@@ -800,6 +849,14 @@ export class Stage4 extends BaseStage {
 		this.player.setVelocity(0, 0);
 		this.player.setDepth(20); // 最前面維持
 
+		// クリア時もBGM停止
+		this.stopBgm();
+
+		// ゴール音を1回だけ鳴らす
+		if (this.goalSe) {
+			this.goalSe.play();
+		}
+
 		// クリア表示
 		this.showGameClear(4);
 	}
@@ -822,6 +879,14 @@ export class Stage4 extends BaseStage {
 		}
 
 		this.physics.pause();
+
+		// BGMを止める
+		this.stopBgm();
+
+		// 爆発音を1回鳴らす
+		if (this.explosionSe) {
+			this.explosionSe.play();
+		}
 
 		// 画面中央にGAME OVER表示
 		this.showGameOver();

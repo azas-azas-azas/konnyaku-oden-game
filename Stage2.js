@@ -31,6 +31,7 @@ export class Stage2 extends BaseStage {
 	// preload
 	// *******************
 	preload() {
+		// ヒーロー（コンニャクいも）
 		this.load.image('hero_left', 'assets/hero_left.png');
 		this.load.image('hero_right', 'assets/hero_right.png');
 
@@ -48,10 +49,20 @@ export class Stage2 extends BaseStage {
 		this.load.image('spark', 'assets/spark.png');
 		this.load.image('steam', 'assets/steam.png');
 
+		// タコ（敵キャラ）
 		this.load.image('tako', 'assets/tako.png');
 		this.load.image('bosstako', 'assets/bosstako.png');
 
+		// 回復アイテム
 		this.load.image('energy', 'assets/energy.png');
+
+		// BGMを追加
+		this.load.audio('bgm', 'assets/audio/Stage2-bgm.mp3');
+		this.load.audio('explosion', 'assets/audio/explosion.mp3');
+		this.load.audio('goal', 'assets/audio/goal.mp3');
+		this.load.audio('damage', 'assets/audio/damage.mp3');
+		this.load.audio('recovery', 'assets/audio/recovery.mp3');
+		this.load.audio('bossvoice', 'assets/audio/boss-voice.mp3');
 	}
 
 	// *******************
@@ -75,6 +86,9 @@ export class Stage2 extends BaseStage {
 		this.bossSpawned = false;
 		this.isBossFight = false;
 		this.boss = null;
+
+		// ボスセリフ用 tween もリセット
+		this.bossMsgTween = null;
 
 		// ボスが去った後の着地待ちフラグ
 		this.waitingForLanding = false;
@@ -140,7 +154,8 @@ export class Stage2 extends BaseStage {
 		this.hero = this.physics.add
 			.sprite(80, this.groundY, 'hero_left') // X=80 に配置
 			.setOrigin(0.5, 1)
-			.setScale(0.07);
+			.setScale(0.07)
+			.setDepth(10);
 		this.hero.setGravityY(1000);
 
 		this.hero.setCollideWorldBounds(true);
@@ -204,7 +219,7 @@ export class Stage2 extends BaseStage {
 			allowGravity: false,
 		});
 
-		// ヒット判定（とりあえずコンソールにログ）
+		// ヒット判定
 		this.physics.add.overlap(
 			this.hero,
 			this.obstacles,
@@ -276,6 +291,42 @@ export class Stage2 extends BaseStage {
 			color: '#000',
 		});
 
+		// BGMを準備（まだ再生しない）
+		this.bgm = this.sound.add('bgm', {
+			loop: true,
+			volume: 0.1,
+		});
+
+		// 爆発音（SE）
+		this.explosionSe = this.sound.add('explosion', {
+			loop: false,
+			volume: 0.2,
+		});
+
+		// ゴールSE
+		this.goalSe = this.sound.add('goal', {
+			loop: false,
+			volume: 0.2,
+		});
+
+		// ダメージ音（SE）
+		this.damageSe = this.sound.add('damage', {
+			loop: false,
+			volume: 0.2,
+		});
+
+		// 回復音（SE）
+		this.recoverySe = this.sound.add('recovery', {
+			loop: false,
+			volume: 0.2,
+		});
+
+		// 回復音（SE）
+		this.bossvoiceSe = this.sound.add('bossvoice', {
+			loop: false,
+			volume: 0.2,
+		});
+
 		// オープニングを表示して待機
 		this.showOpening();
 
@@ -328,6 +379,11 @@ export class Stage2 extends BaseStage {
 			overlay.destroy();
 			textObj.destroy();
 			startMsg.destroy();
+
+			// BGMスタート
+			if (this.bgm && !this.bgm.isPlaying) {
+				this.bgm.play();
+			}
 
 			this.startGame();
 		});
@@ -490,6 +546,9 @@ export class Stage2 extends BaseStage {
 	getDamageForObstacle(obstacle) {
 		const key = obstacle.texture ? obstacle.texture.key : '';
 
+		// ダメージ音を鳴らす
+		this.damageSe.play();
+
 		const damageEnabled = true; // 無敵モード用（★デバッグ用）
 		if (!damageEnabled) {
 			return 0;
@@ -543,6 +602,9 @@ export class Stage2 extends BaseStage {
 
 		item.destroy();
 
+		// 回復音を鳴らす
+		this.recoverySe.play();
+
 		// 最大HPの半分回復
 		const healAmount = Math.floor(this.maxHp * 0.5);
 		this.hp = Math.min(this.maxHp, this.hp + healAmount);
@@ -560,13 +622,27 @@ export class Stage2 extends BaseStage {
 
 		// スポーン停止
 		if (this.nextObstacleEvent) {
-		this.nextObstacleEvent.remove(false);
-		this.nextObstacleEvent = null;
+			this.nextObstacleEvent.remove(false);
+			this.nextObstacleEvent = null;
+		}
+
+		// ボスのセリフ用tweenも止める
+		if (this.bossMsgTween) {
+			this.bossMsgTween.stop();
+			this.bossMsgTween = null;
 		}
 
 		// プレイヤーをちょっと強調（赤くするなど）
 		if (this.hero && this.hero.setTint) {
 			this.hero.setTint(0xff0000);
+		}
+
+		// BGMを止める
+		this.stopBgm();
+
+		// 爆発音を1回鳴らす
+		if (this.explosionSe) {
+			this.explosionSe.play();
 		}
 
 		// 画面中央にGAME OVER表示
@@ -619,10 +695,18 @@ export class Stage2 extends BaseStage {
 		// 動きを止める
 		this.physics.pause();
 
+		// クリア時もBGM停止
+		this.stopBgm();
+
+		// ゴール音を1回だけ鳴らす
+		if (this.goalSe) {
+			this.goalSe.play();
+		}
+
 		// クリア表示
 		this.showGameClear(2);
 
-		this.time.delayedCall(3000, () => {
+		this.time.delayedCall(5000, () => {
 			this.scene.start('Stage3');
 		});
 	}
@@ -807,6 +891,9 @@ export class Stage2 extends BaseStage {
 		tako.body.setAllowGravity(false);
 		tako.body.setImmovable(true);
 
+		// ボス登場時のボイス
+		this.bossvoiceSe.play();
+
 		// 当たり判定は大きめ
 		tako.body.setSize(
 			tako.displayWidth * 0.8,
@@ -917,12 +1004,15 @@ export class Stage2 extends BaseStage {
 
 	// 中盤：コンベア上を流れる箱
 	spawnMiddlePattern() {
-		this.spawnMiddleBox();
+		// まず 60% の確率で箱を1個だけ出す
+		if (Phaser.Math.FloatBetween(0, 1) < 0.6) {
+			this.spawnMiddleBox();
+		}
 
-		// 25%の確率で短い間隔で追加の箱を出す
-		if (Phaser.Math.FloatBetween(0, 1) < 0.2) {
+		// さらに 10%くらいの低確率で追加の箱を出す
+		if (Phaser.Math.FloatBetween(0, 1) < 0.1) {
 			this.time.addEvent({
-				delay: Phaser.Math.Between(200, 400),
+				delay: Phaser.Math.Between(300, 600),
 				callback: () => this.spawnMiddleBox()
 			});
 		}
