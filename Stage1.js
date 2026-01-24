@@ -48,10 +48,6 @@ export class Stage1 extends BaseStage {
 		// ゲーム開始フラグ
 		this.isGameStarted = false;
 
-		// 端末判定＆スマホ用入力フラグ
-		this.isMobile = !this.sys.game.device.os.desktop;
-		this.mobileInput = { left: false, right: false, up: false, down: false };
-
 		// 背景色の設定
 		this.cameras.main.setBackgroundColor('#87ceeb');
 
@@ -92,19 +88,19 @@ export class Stage1 extends BaseStage {
 		// BGMを準備（まだ再生しない）
 		this.bgm = this.sound.add('bgm', {
 			loop: true,
-			volume: 0.3
+			volume: 0.1,
 		});
 
 		// 爆発音（SE）
 		this.explosionSe = this.sound.add('explosion', {
 			loop: false,
-			volume: 0.4, // 好みで調整
+			volume: 0.2,
 		});
 
 		// ゴールSE
 		this.goalSe = this.sound.add('goal', {
 			loop: false,
-			volume: 0.4, // 好みで微調整
+			volume: 0.2,
 		});
 
 		// オープニングを表示
@@ -151,11 +147,8 @@ export class Stage1 extends BaseStage {
 			repeat: -1
 		});
 
-		// 共通の開始ハンドラ
-		const startHandler = () => {
-			// 二重起動防止
-			if (this.isGameStarted) return;
-
+		// 4. Spaceキー入力待ち（1回だけ反応）
+		this.input.keyboard.once('keydown-SPACE', () => {
 			// モーダル類を消す
 			overlay.destroy();
 			textObj.destroy();
@@ -168,13 +161,7 @@ export class Stage1 extends BaseStage {
 
 			// ゲーム本編を開始
 			this.startGame();
-		};
-
-		// 4. Spaceキー入力待ち（1回だけ反応）
-		this.input.keyboard.once('keydown-SPACE', startHandler);
-
-		// 5. スマホ用：画面タップでも開始
-		this.input.once('pointerdown', startHandler);		
+		});
 	}
 
 	// ゲーム本編を開始する関数
@@ -183,11 +170,6 @@ export class Stage1 extends BaseStage {
 
 		this.showStageBanner('Stage1：畑から脱出');
 		this.showControls('←↑→↓ 移動 / R リスタート / T タイトル');
-
-		// スマホ用：画面下に矢印ボタンを表示
-		if (this.isMobile) {
-			this.createMobileControls();
-		}
 
 		// 敵の出現ループを開始（createから移動してきました）
 		this.spawnEnemy(); // すぐ1匹
@@ -208,53 +190,6 @@ export class Stage1 extends BaseStage {
 		});
 	}
 
-	// スマホ用：画面下に矢印ボタンを作る
-	createMobileControls() {
-		const { width, height } = this.scale;
-
-		// ベース位置（下から少し上）
-		const baseY = height - 70;
-		const size = 60;
-
-		// 共通で使うボタン生成ヘルパー
-		const makeButton = (x, y, label, key) => {
-			const bg = this.add.rectangle(x, y, size, size, 0x000000, 0.4)
-				.setDepth(1000)
-				.setScrollFactor(0)
-				.setInteractive();
-
-			const txt = this.add.text(x, y, label, {
-				fontFamily: 'sans-serif',
-				fontSize: '28px',
-				color: '#ffffff',
-			})
-			.setOrigin(0.5)
-			.setDepth(1001)
-			.setScrollFactor(0);
-
-			bg.on('pointerdown', () => {
-				if (!this.isGameStarted || this.gameOver || this.cleared) return;
-				this.mobileInput[key] = true;
-			});
-
-			// 指が離れた / 外に出たときは止める
-			const clear = () => {
-				this.mobileInput[key] = false;
-			};
-			bg.on('pointerup', clear);
-			bg.on('pointerout', clear);
-			bg.on('pointerupoutside', clear);
-		};
-
-		// 配置イメージ：
-		//       ↑
-		//   ←   ↓   →
-		makeButton(width / 2 - size, baseY, '←', 'left');
-		makeButton(width / 2 + size, baseY, '→', 'right');
-		makeButton(width / 2,        baseY - size, '↑', 'up');
-		makeButton(width / 2,        baseY + size, '↓', 'down');
-	}
-
 	// *******************
 	// update
 	// *******************
@@ -266,53 +201,27 @@ export class Stage1 extends BaseStage {
 		if (!this.isGameStarted || this.gameOver || this.cleared) return;
 
 		const dt = delta / 1000;
-		const baseSpeed = 70;  // プレイヤー移動速度
+		const speed = 70;  // プレイヤー移動速度
 
 		let vx = 0;
 		let vy = 0;
 		let moving = false; // ← 動いているか判定
 
-		// --- PC用：キーボード入力 ---
-		if (this.cursors) {
-			if (this.cursors.left.isDown) {
-				vx = -baseSpeed;
-				moving = true;
-			} else if (this.cursors.right.isDown) {
-				vx = baseSpeed;
-				moving = true;
-			}
-
-			if (this.cursors.up.isDown) {
-				vy = -baseSpeed;
-				moving = true;
-			} else if (this.cursors.down.isDown) {
-				vy = baseSpeed;
-				moving = true;
-			}
+		// --- 入力処理 ---
+		if (this.cursors.left.isDown) {
+			vx = -speed;
+			moving = true;
+		} else if (this.cursors.right.isDown) {
+			vx = speed;
+			moving = true;
 		}
 
-		// --- スマホ用：画面下の矢印ボタン入力 ---
-		if (this.isMobile && this.mobileInput) {
-			// 一旦リセットして「ボタン優先」にしたい場合は、コメントアウト外す
-			// vx = 0;
-			// vy = 0;
-			// moving = false;
-
-			if (this.mobileInput.left) {
-				vx = -baseSpeed;
-				moving = true;
-			} else if (this.mobileInput.right) {
-				vx = baseSpeed;
-				moving = true;
-			}
-
-			if (this.mobileInput.up) {
-				vy = -baseSpeed;
-				moving = true;
-			} else if (this.mobileInput.down) {
-				vy = baseSpeed;
-				moving = true;
-			}
+		if (this.cursors.up.isDown) {
+			vy = -speed;
+			moving = true;
+		} else if (this.cursors.down.isDown) {
+			vy = speed;
+			moving = true;
 		}
 
 		// --- 1) X方向の移動（衝突チェック付き） ---

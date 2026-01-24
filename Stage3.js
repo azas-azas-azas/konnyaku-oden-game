@@ -13,8 +13,16 @@ export class Stage3 extends BaseStage {
 	// preload
 	// *******************
 	preload() {
+		// 主人公（コンニャクイモ）を追加
 		this.load.image('hero_konnyaku', 'assets/hero_processed.png');
+
+		// 買い物かご画像を追加
 		this.load.image('basket', 'assets/basket.png');
+
+		// BGMを追加
+		this.load.audio('bgm', 'assets/audio/Stage3-bgm.mp3');
+		this.load.audio('explosion', 'assets/audio/explosion.mp3');
+		this.load.audio('goal', 'assets/audio/goal.mp3');
 	}
 
 	// *******************
@@ -80,6 +88,24 @@ export class Stage3 extends BaseStage {
 
 		this.damageEnabled = true; // 無敵モード用（★デバッグ用）
 
+		// BGMを準備（まだ再生しない）
+		this.bgm = this.sound.add('bgm', {
+			loop: true,
+			volume: 0.1,
+		});
+
+		// 爆発音（SE）
+		this.explosionSe = this.sound.add('explosion', {
+			loop: false,
+			volume: 0.2,
+		});
+
+		// ゴールSE
+		this.goalSe = this.sound.add('goal', {
+			loop: false,
+			volume: 0.2,
+		});
+
 		// オープニングへ
 		this.showOpening();
 	}
@@ -125,6 +151,12 @@ export class Stage3 extends BaseStage {
 			overlay.destroy();
 			textObj.destroy();
 			startMsg.destroy();
+
+			// BGMスタート
+			if (this.bgm && !this.bgm.isPlaying) {
+				this.bgm.play();
+			}
+
 			this.startGame();
 		});
 	}
@@ -254,6 +286,14 @@ export class Stage3 extends BaseStage {
 		// 物理停止
 		this.physics.pause();
 
+		// BGMを止める
+		this.stopBgm();
+
+		// 爆発音を1回鳴らす
+		if (this.explosionSe) {
+			this.explosionSe.play();
+		}
+
 		// 画面中央にGAME OVER表示
 		this.showGameOver();
 	}
@@ -269,7 +309,15 @@ export class Stage3 extends BaseStage {
 		// クリア表示
 		this.showGameClear(3);
 
-		this.time.delayedCall(3000, () => {
+		// クリア時もBGM停止
+		this.stopBgm();
+
+		// ゴール音を1回だけ鳴らす
+		if (this.goalSe) {
+			this.goalSe.play();
+		}
+
+		this.time.delayedCall(5000, () => {
 			this.scene.start('Stage4');
 		});
 	}

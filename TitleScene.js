@@ -25,7 +25,7 @@ export class TitleScene extends Phaser.Scene {
 		// メニューBGMを準備（まだ再生しない）
 		this.menuBgm = this.sound.add('menuBgm', {
 			loop: true,
-			volume: 0.3,
+			volume: 0.1,
 		});
 
 		// タイトルロード直後に再生（PCでは即鳴る）
@@ -57,7 +57,7 @@ export class TitleScene extends Phaser.Scene {
 		makeBtn(380, 'Stage3から', 'Stage3');
 		makeBtn(440, 'Stage4から', 'Stage4');
 
-		// ユーザー操作でメニューBGMを
+		// ユーザー操作でメニューBGMを停止
 		const stopMenuBgm = () => {
 			if (this.menuBgm && !this.menuBgm.isPlaying) {
 				this.menuBgm.stop();
