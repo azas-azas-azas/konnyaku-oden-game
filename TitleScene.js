@@ -1,4 +1,8 @@
-// TitleScene.js
+/**
+ * TitleScene.js
+ * 
+ * タイトルシーン
+ */
 export class TitleScene extends Phaser.Scene {
 
 	// *******************
@@ -22,14 +26,23 @@ export class TitleScene extends Phaser.Scene {
 	// *******************
 	create() {
 
+		// スマホ判定（OS + タッチ）
+		const isMobileLike =
+			this.sys.game.device.os.android ||
+			this.sys.game.device.os.iOS ||
+			this.sys.game.device.os.iPad ||
+			this.sys.game.device.input.touch;
+
 		// メニューBGMを準備（まだ再生しない）
 		this.menuBgm = this.sound.add('menuBgm', {
 			loop: true,
 			volume: 0.1,
 		});
 
-		// タイトルロード直後に再生（PCでは即鳴る）
-		this.menuBgm.play();
+		// スマホではオート再生しない（PCだけ鳴らす）
+		if (!isMobileLike) {
+			this.menuBgm.play();
+		}
 
 		// TitleScene の create() 内イメージ
 		this.add.text(400, 140, 'ROAD TO ODEN', {
@@ -38,25 +51,49 @@ export class TitleScene extends Phaser.Scene {
 			color: '#a89393',
 			fontStyle: 'bold'
 		}).setOrigin(0.5);
-		const makeBtn = (y, label, sceneKey) => {
-			const t = this.add.text(400, y, label, { fontSize: '28px', color: '#000', backgroundColor: '#fff' })
-				.setOrigin(0.5)
-				.setPadding(10)
-				.setInteractive({ useHandCursor: true });
 
+		// ボタン作成
+		const makeBtn = (y, label, sceneKey) => {
+			const t = this.add.text(400, y, label, {
+				fontSize: '28px',
+				color: '#000',
+				backgroundColor: '#fff'
+			})
+			.setOrigin(0.5)
+			.setPadding(10);
+
+			// スマホなら「非アクティブ化」して見た目も薄く
+			if (isMobileLike) {
+				t.setAlpha(0.4);
+				// setInteractiveしないので、押しても反応しない
+				return t;
+			}
+
+			// PCだけ押せる
+			t.setInteractive({ useHandCursor: true });
 			t.on('pointerdown', () => {
-				if (this.menuBgm && this.menuBgm.isPlaying) {
-					this.menuBgm.stop();
-				}
+				if (this.menuBgm && this.menuBgm.isPlaying) this.menuBgm.stop();
 				this.scene.start(sceneKey);
 			});
+
+			return t;
 		};
 
 		makeBtn(260, 'START（Stage1）', 'Stage1');
 		makeBtn(320, 'Stage2から', 'Stage2');
 		makeBtn(380, 'Stage3から', 'Stage3');
 		makeBtn(440, 'Stage4から', 'Stage4');
+//		makeBtn(500, 'END ROLL', 'EndRoll');	//for debug
 
+		// スマホのときだけ案内を表示
+		if (isMobileLike) {
+			this.add.text(400, 520, 'このゲームはPC向けです。\nPCブラウザで開いてください。', {
+				fontSize: '18px',
+				color: '#ffffff',
+				align: 'center'
+			}).setOrigin(0.5);
+		}
+		
 		// ユーザー操作でメニューBGMを停止
 		const stopMenuBgm = () => {
 			if (this.menuBgm && !this.menuBgm.isPlaying) {
@@ -71,7 +108,9 @@ export class TitleScene extends Phaser.Scene {
 		this.input.keyboard.once('keydown', stopMenuBgm);
 	}
 
+	// *******************
 	// ボタン作成共通関数
+	// *******************
 	makeButton(x, y, label, onClick, fontSize = 28) {
 		const t = this.add.text(x, y, label, {
 			fontFamily: 'monospace',

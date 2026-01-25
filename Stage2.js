@@ -1,5 +1,9 @@
 import { BaseStage } from './BaseStage.js';
+import { isMobileLike, showMobileBlock } from './deviceGuard.js';
 
+/** 
+ * Stage2.js
+*/
 export class Stage2 extends BaseStage {
 
 	// *******************
@@ -57,18 +61,20 @@ export class Stage2 extends BaseStage {
 		this.load.image('energy', 'assets/energy.png');
 
 		// BGMを追加
-		this.load.audio('bgm', 'assets/audio/Stage2-bgm.mp3');
-		this.load.audio('explosion', 'assets/audio/explosion.mp3');
-		this.load.audio('goal', 'assets/audio/goal.mp3');
-		this.load.audio('damage', 'assets/audio/damage.mp3');
-		this.load.audio('recovery', 'assets/audio/recovery.mp3');
-		this.load.audio('bossvoice', 'assets/audio/boss-voice.mp3');
+		this.load.audio('bgm2', 'assets/audio/Stage2-bgm.mp3');
+		this.preloadCommonAudio();
 	}
 
 	// *******************
 	// create
 	// *******************
 	create() {
+		// スマホ判定・ガード
+		if (isMobileLike(this)) {
+			showMobileBlock(this);
+			return; // 以降の生成処理を止める
+		}
+
 		// ゲーム開始フラグ
 		this.isGameStarted = false;
 
@@ -292,39 +298,9 @@ export class Stage2 extends BaseStage {
 		});
 
 		// BGMを準備（まだ再生しない）
-		this.bgm = this.sound.add('bgm', {
+		this.bgm = this.sound.add('bgm2', {
 			loop: true,
 			volume: 0.1,
-		});
-
-		// 爆発音（SE）
-		this.explosionSe = this.sound.add('explosion', {
-			loop: false,
-			volume: 0.2,
-		});
-
-		// ゴールSE
-		this.goalSe = this.sound.add('goal', {
-			loop: false,
-			volume: 0.2,
-		});
-
-		// ダメージ音（SE）
-		this.damageSe = this.sound.add('damage', {
-			loop: false,
-			volume: 0.2,
-		});
-
-		// 回復音（SE）
-		this.recoverySe = this.sound.add('recovery', {
-			loop: false,
-			volume: 0.2,
-		});
-
-		// 回復音（SE）
-		this.bossvoiceSe = this.sound.add('bossvoice', {
-			loop: false,
-			volume: 0.2,
 		});
 
 		// オープニングを表示して待機
@@ -547,7 +523,7 @@ export class Stage2 extends BaseStage {
 		const key = obstacle.texture ? obstacle.texture.key : '';
 
 		// ダメージ音を鳴らす
-		this.damageSe.play();
+		this.playSfx('damage');
 
 		const damageEnabled = true; // 無敵モード用（★デバッグ用）
 		if (!damageEnabled) {
@@ -603,7 +579,7 @@ export class Stage2 extends BaseStage {
 		item.destroy();
 
 		// 回復音を鳴らす
-		this.recoverySe.play();
+		this.playSfx('recovery');
 
 		// 最大HPの半分回復
 		const healAmount = Math.floor(this.maxHp * 0.5);
@@ -641,9 +617,7 @@ export class Stage2 extends BaseStage {
 		this.stopBgm();
 
 		// 爆発音を1回鳴らす
-		if (this.explosionSe) {
-			this.explosionSe.play();
-		}
+		this.playSfx('explosion');
 
 		// 画面中央にGAME OVER表示
 		this.showGameOver();
@@ -699,9 +673,7 @@ export class Stage2 extends BaseStage {
 		this.stopBgm();
 
 		// ゴール音を1回だけ鳴らす
-		if (this.goalSe) {
-			this.goalSe.play();
-		}
+		this.playSfx('goal');
 
 		// クリア表示
 		this.showGameClear(2);
@@ -892,7 +864,7 @@ export class Stage2 extends BaseStage {
 		tako.body.setImmovable(true);
 
 		// ボス登場時のボイス
-		this.bossvoiceSe.play();
+		this.playSfx('bossvoice');
 
 		// 当たり判定は大きめ
 		tako.body.setSize(
@@ -1005,12 +977,12 @@ export class Stage2 extends BaseStage {
 	// 中盤：コンベア上を流れる箱
 	spawnMiddlePattern() {
 		// まず 60% の確率で箱を1個だけ出す
-		if (Phaser.Math.FloatBetween(0, 1) < 0.6) {
+		if (Phaser.Math.FloatBetween(0, 1) < 0.8) {
 			this.spawnMiddleBox();
 		}
 
 		// さらに 10%くらいの低確率で追加の箱を出す
-		if (Phaser.Math.FloatBetween(0, 1) < 0.1) {
+		if (Phaser.Math.FloatBetween(0, 1) < 0.3) {
 			this.time.addEvent({
 				delay: Phaser.Math.Between(300, 600),
 				callback: () => this.spawnMiddleBox()
