@@ -3,12 +3,18 @@
  */
 
 export function isMobileLike(scene) {
-	return (
-		scene.sys.game.device.os.android ||
-		scene.sys.game.device.os.iOS ||
-		scene.sys.game.device.os.iPad ||
-		scene.sys.game.device.input.touch
-	);
+	console.log('os', scene.sys.game.device.os);
+	console.log('touch', scene.sys.game.device.input.touch, 'w', scene.scale.width);
+
+	const d = scene.sys.game.device;
+
+	// OSで確定（ここが主）
+	const byOs = d.os.android || d.os.iOS || d.os.iPad;
+
+	// “念のため”の補助：画面が小さくてタッチならモバイル寄り
+	const bySmallTouch = d.input.touch && scene.scale.width <= 820; // 閾値は好みで調整
+
+	return byOs || bySmallTouch;
 }
 
 export function showMobileBlock(
