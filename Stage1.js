@@ -1,5 +1,9 @@
 import { BaseStage } from './BaseStage.js';
+import { isMobileLike, showMobileBlock } from './deviceGuard.js';
 
+/**
+ * Stage1.js
+ */
 export class Stage1 extends BaseStage {
 
 	// *******************
@@ -36,15 +40,20 @@ export class Stage1 extends BaseStage {
 		this.load.image('hero_right', basePath + 'hero_right.png');
 
 		// BGMを追加
-		this.load.audio('bgm', 'assets/audio/Stage1-bgm.mp3');
-		this.load.audio('explosion', 'assets/audio/explosion.mp3');
-		this.load.audio('goal', 'assets/audio/goal.mp3');
+		this.load.audio('bgm1', 'assets/audio/Stage1-bgm.mp3');
+		this.preloadCommonAudio();
 	}
 
 	// *******************
 	// create
 	// *******************
 	create() {
+		// スマホ判定・ガード
+		if (isMobileLike(this)) {
+			showMobileBlock(this);
+			return; // 以降の生成処理を止める
+		}
+
 		// ゲーム開始フラグ
 		this.isGameStarted = false;
 
@@ -86,21 +95,9 @@ export class Stage1 extends BaseStage {
 		this.goalLine = this.add.rectangle(400, 40, 800, 20, 0x00aa00); // 判定には使いませんが飾りとして
 
 		// BGMを準備（まだ再生しない）
-		this.bgm = this.sound.add('bgm', {
+		this.bgm = this.sound.add('bgm1', {
 			loop: true,
 			volume: 0.1,
-		});
-
-		// 爆発音（SE）
-		this.explosionSe = this.sound.add('explosion', {
-			loop: false,
-			volume: 0.2,
-		});
-
-		// ゴールSE
-		this.goalSe = this.sound.add('goal', {
-			loop: false,
-			volume: 0.2,
 		});
 
 		// オープニングを表示
@@ -449,9 +446,7 @@ export class Stage1 extends BaseStage {
 		this.stopBgm();
 
 		// 爆発音を1回鳴らす
-		if (this.explosionSe) {
-			this.explosionSe.play();
-		}
+		this.playSfx('explosion');
 		
 		// ゲームオーバー表示
 		this.showGameOver();
@@ -467,9 +462,7 @@ export class Stage1 extends BaseStage {
 		this.stopBgm();
 
 		// ゴール音を1回だけ鳴らす
-		if (this.goalSe) {
-			this.goalSe.play();
-		}
+		this.playSfx('goal');
 
 		// クリア表示
 		this.showGameClear(1);

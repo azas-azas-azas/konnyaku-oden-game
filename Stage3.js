@@ -1,5 +1,9 @@
 import { BaseStage } from './BaseStage.js';
+import { isMobileLike, showMobileBlock } from './deviceGuard.js';
 
+/**
+ * Stage3.js
+ */
 export class Stage3 extends BaseStage {
 
 	// *******************
@@ -20,15 +24,20 @@ export class Stage3 extends BaseStage {
 		this.load.image('basket', 'assets/basket.png');
 
 		// BGMを追加
-		this.load.audio('bgm', 'assets/audio/Stage3-bgm.mp3');
-		this.load.audio('explosion', 'assets/audio/explosion.mp3');
-		this.load.audio('goal', 'assets/audio/goal.mp3');
+		this.load.audio('bgm3', 'assets/audio/Stage3-bgm.mp3');
+		this.preloadCommonAudio();
 	}
 
 	// *******************
 	// create
 	// *******************
 	create() {
+		// スマホ判定・ガード
+		if (isMobileLike(this)) {
+			showMobileBlock(this);
+			return; // 以降の生成処理を止める
+		}
+
 		// ゲーム開始フラグ
 		this.isGameStarted = false;
 
@@ -89,21 +98,9 @@ export class Stage3 extends BaseStage {
 		this.damageEnabled = true; // 無敵モード用（★デバッグ用）
 
 		// BGMを準備（まだ再生しない）
-		this.bgm = this.sound.add('bgm', {
+		this.bgm = this.sound.add('bgm3', {
 			loop: true,
 			volume: 0.1,
-		});
-
-		// 爆発音（SE）
-		this.explosionSe = this.sound.add('explosion', {
-			loop: false,
-			volume: 0.2,
-		});
-
-		// ゴールSE
-		this.goalSe = this.sound.add('goal', {
-			loop: false,
-			volume: 0.2,
 		});
 
 		// オープニングへ
@@ -167,7 +164,7 @@ export class Stage3 extends BaseStage {
 
 		// バナー表示
 		this.showStageBanner('Stage3：買い物カゴを避けろ');
-		this.showControls('←→ 移動 / R リスタート / T タイトル　【敵に当たらず60秒逃げ切れ！】');
+		this.showControls('←→ 移動 / R リスタート / T タイトル　【カゴに当たらず60秒逃げ切れ！】');
 
 		// タイマーの基準時間をセット
 		this.startTime = this.time.now;
@@ -290,9 +287,7 @@ export class Stage3 extends BaseStage {
 		this.stopBgm();
 
 		// 爆発音を1回鳴らす
-		if (this.explosionSe) {
-			this.explosionSe.play();
-		}
+		this.playSfx('explosion');
 
 		// 画面中央にGAME OVER表示
 		this.showGameOver();
@@ -313,9 +308,7 @@ export class Stage3 extends BaseStage {
 		this.stopBgm();
 
 		// ゴール音を1回だけ鳴らす
-		if (this.goalSe) {
-			this.goalSe.play();
-		}
+		this.playSfx('goal');
 
 		this.time.delayedCall(5000, () => {
 			this.scene.start('Stage4');

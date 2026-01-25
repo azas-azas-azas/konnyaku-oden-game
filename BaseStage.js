@@ -1,10 +1,42 @@
-// BaseStage.js
+/**
+ * BaseStage.js
+ * 
+ * 各ステージの共通機能をまとめた基底クラス
+ */
 export class BaseStage extends Phaser.Scene {
+
+	// *******************
+	// コンストラクタ
+	// *******************
 	constructor(key) {
 		super(key);
 	}
 
+	// *******************
+	// 共通SEをまとめて読み込む
+	// *******************
+	preloadCommonAudio() {
+		this.load.audio('explosion', 'assets/audio/explosion.mp3');
+		this.load.audio('goal', 'assets/audio/goal.mp3');
+		this.load.audio('damage', 'assets/audio/damage.mp3');
+		this.load.audio('recovery', 'assets/audio/recovery.mp3');
+		this.load.audio('bossvoice', 'assets/audio/boss-voice.mp3');
+		this.load.audio('shot', 'assets/audio/shot.mp3');
+	}
+
+	// *******************
+	// 共通のSE再生ヘルパー
+	// *******************
+	playSfx(key, config = {}) {
+		this.sound.play(key, {
+			volume: 0.2,   // 共通の標準音量
+			...config,
+		});
+	}
+
+	// *******************
 	// ステージ開始バナー表示
+	// *******************
 	showStageBanner(text) {
 		const { width } = this.scale;
 		const t = this.add.text(width / 2, 60, text, {
@@ -24,7 +56,9 @@ export class BaseStage extends Phaser.Scene {
 		});
 	}
 
+	// *******************
 	// 操作説明表示
+	// *******************
 	showControls(text) {
 		if (this.controlsText) this.controlsText.destroy();
 
@@ -39,7 +73,9 @@ export class BaseStage extends Phaser.Scene {
 		this.controlsText.setScrollFactor(0);
 	}
 
+	// *******************
 	// 共通キー設定（R: リスタート、T: タイトルへ）
+	// *******************
 	setupCommonKeys() {
 		this.keyR = this.input.keyboard.addKey(
 			Phaser.Input.Keyboard.KeyCodes.R
@@ -49,21 +85,32 @@ export class BaseStage extends Phaser.Scene {
 		);
 	}
 
+	// *******************
+	// 共通キー処理更新（R: リスタート、T: タイトルへ）
+	// *******************
 	updateCommonKeys() {
 		if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
 			this.stopBgm();
+			this.sound.stopAll();
 			this.scene.restart();
 		}
 		if (Phaser.Input.Keyboard.JustDown(this.keyT)) {
 			this.stopBgm();
+			this.sound.stopAll();
 			this.goToTitle();
 		}
 	}
 
+	// *******************
+	// タイトルへ戻る
+	// *******************
 	goToTitle() {
 		this.scene.start('Title'); // TitleScene の key に合わせる
 	}
 
+	// *******************
+	// 結果メッセージ表示（クリア・ゲームオーバー共通）
+	// *******************
 	showResultMessage({
 		text,
 		color,
@@ -87,6 +134,9 @@ export class BaseStage extends Phaser.Scene {
 		.setDepth(9999);
 	}
 
+	// *******************
+	// ステージクリア表示
+	// *******************
 	showGameClear(stageNumber) {
 		this.showResultMessage({
 			text: `STAGE${stageNumber} CLEAR!`,
@@ -95,6 +145,9 @@ export class BaseStage extends Phaser.Scene {
 		});
 	}
 
+	// *******************
+	// ゲームオーバー表示
+	// *******************
 	showGameOver() {
 		this.showResultMessage({
 			text: 'GAME OVER',
@@ -103,7 +156,9 @@ export class BaseStage extends Phaser.Scene {
 		});
 	}
 
-	// BGM停止（あれば止める）
+	// *******************
+	// BGM停止
+	// *******************
 	stopBgm() {
 		if (this.bgm && this.bgm.isPlaying) {
 			this.bgm.stop();

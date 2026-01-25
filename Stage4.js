@@ -1,5 +1,9 @@
 import { BaseStage } from './BaseStage.js';
+import { isMobileLike, showMobileBlock } from './deviceGuard.js';
 
+/**
+ * Stage4.js
+ */
 export class Stage4 extends BaseStage {
 
 	// *******************
@@ -24,7 +28,7 @@ export class Stage4 extends BaseStage {
 		this.invincibleUntil = 0;
 
 		// ★デバッグ用：無敵モード
-		this.damageEnabled = false;
+		this.damageEnabled = true;
 
 		// ボス管理用
 		this.boss = null;
@@ -71,17 +75,20 @@ export class Stage4 extends BaseStage {
 		this.load.image('pot', 'assets/pot.png');
 
 		// BGMを追加
-		this.load.audio('bgm', 'assets/audio/Stage4-bgm.mp3');
-		this.load.audio('explosion', 'assets/audio/explosion.mp3');
-		this.load.audio('goal', 'assets/audio/goal.mp3');
-		this.load.audio('damage', 'assets/audio/damage.mp3');
-		this.load.audio('shot', 'assets/audio/shot.mp3');
+		this.load.audio('bgm4', 'assets/audio/Stage4-bgm.mp3');
+		this.preloadCommonAudio();
 	}
 
 	// *******************
 	// create
 	// *******************
 	create() {
+		// スマホ判定・ガード
+		if (isMobileLike(this)) {
+			showMobileBlock(this);
+			return; // 以降の生成処理を止める
+		}
+
 		// ゲーム開始フラグ
 		this.isGameStarted = false;
 
@@ -230,33 +237,9 @@ export class Stage4 extends BaseStage {
 		 );
 
 		// BGMを準備（まだ再生しない）
-		this.bgm = this.sound.add('bgm', {
+		this.bgm = this.sound.add('bgm4', {
 			loop: true,
 			volume: 0.1,
-		});
-
-		// 爆発音（SE）
-		this.explosionSe = this.sound.add('explosion', {
-			loop: false,
-			volume: 0.2,
-		});
-
-		// ゴールSE
-		this.goalSe = this.sound.add('goal', {
-			loop: false,
-			volume: 0.2,
-		});
-
-		// ダメージ音（SE）
-		this.damageSe = this.sound.add('damage', {
-			loop: false,
-			volume: 0.2,
-		});
-
-		// ショット音（SE）
-		this.shotSe = this.sound.add('shot', {
-			loop: false,
-			volume: 0.2,
 		});
 
 		// オープニングへ
@@ -626,7 +609,7 @@ export class Stage4 extends BaseStage {
 
 		// --- 登場演出 ---
 		// 画面右の定位置（ホームポジション）
-		const homeX = width - 300;
+		const homeX = width - 200;
 		// 攻撃時に迫ってくる位置（だいぶ左まで来る）
 		const attackX = width - 450;
 
@@ -663,7 +646,7 @@ export class Stage4 extends BaseStage {
 				// 動き3「大根おろしショット」発射タイマー
 				// 2秒ごとに3Way弾を撃ってくる
 				this.bossAttackEvent = this.time.addEvent({
-					delay: 2000, // 2秒間隔
+					delay: 3000, // 3秒間隔
 					loop: true,
 					callback: () => {
 						// ボスが生きていて、かつゲーム中でなければ撃たない
@@ -677,6 +660,8 @@ export class Stage4 extends BaseStage {
 		// メッセージ
 		if (this.messageText) {
 			this.messageText.setText('ダイコンBOSS：私を倒してみろ');
+			// ボス登場時のボイス
+			this.playSfx('bossvoice');
 		}
 
 		// --- 当たり判定関係 ---
@@ -716,8 +701,8 @@ export class Stage4 extends BaseStage {
 		const x = this.boss.x - 60;
 		const y = this.boss.y;
 
-		// 3発発射（上・左・下）
-		const angles = [160, 180, 200]; // 角度
+		// 3発発射（上・下）
+		const angles = [160, 200]; // 角度
 		const speed = 300; // 弾の速さ
 
 		angles.forEach(angle => {
@@ -756,7 +741,7 @@ export class Stage4 extends BaseStage {
 		bullet.setVelocityX(600);
 
 		// ショット音を鳴らす
-		this.shotSe.play();
+		this.playSfx('shot');
 	}
 
 	// ダメージ処理
@@ -779,7 +764,7 @@ export class Stage4 extends BaseStage {
 			// 1回当たった（残り1）：濃い青（ピンチ感）
 			this.player.setTint(0x4444ff);
 			// ダメージ音を鳴らす
-			this.damageSe.play();
+			this.playSfx('damage');
 
 		} else if (this.hp <= 0) {
 			// 2回当たった（残り0）：赤
@@ -853,12 +838,14 @@ export class Stage4 extends BaseStage {
 		this.stopBgm();
 
 		// ゴール音を1回だけ鳴らす
-		if (this.goalSe) {
-			this.goalSe.play();
-		}
+		this.playSfx('goal');
 
 		// クリア表示
 		this.showGameClear(4);
+
+		this.time.delayedCall(5000, () => {
+			this.scene.start('EndRoll');
+		});
 	}
 
 	// ゲームオーバー処理
@@ -884,9 +871,7 @@ export class Stage4 extends BaseStage {
 		this.stopBgm();
 
 		// 爆発音を1回鳴らす
-		if (this.explosionSe) {
-			this.explosionSe.play();
-		}
+		this.playSfx('explosion');
 
 		// 画面中央にGAME OVER表示
 		this.showGameOver();
