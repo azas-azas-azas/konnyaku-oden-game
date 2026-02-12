@@ -28,7 +28,7 @@ export class Stage4 extends BaseStage {
 		this.invincibleUntil = 0;
 
 		// ★デバッグ用：無敵モード
-		this.damageEnabled = true;
+		this.damageEnabled = false;
 
 		// ボス管理用
 		this.boss = null;
@@ -456,7 +456,9 @@ export class Stage4 extends BaseStage {
 				break;
 
 			case 'mochi':
-				this.spawnMochi();
+				if (Phaser.Math.Between(0, 100) < 90) {
+					this.spawnMochi();
+				}
 				break;
 
 			case 'egg':
@@ -475,46 +477,70 @@ export class Stage4 extends BaseStage {
 		o.setVelocityX(-180);
 	}
 
-	// ちくわ：右半分ランダムXから落下＋左へ流れる（たまに2連）
+    // ちくわ：回転しながら波打って飛んでくる（重力無視）
 	spawnChikuwa() {
-		const { width } = this.scale;
+		const { width, height } = this.scale;
 
+		// 2回に分けて出すなど工夫してもいいですが、まずは単体での動きを変えます
 		const spawnOne = (delay = 0) => {
 			this.time.delayedCall(delay, () => {
 				if (this.goalOpened) return;
 
-				const xMin = Math.floor(width * 0.55);
-				const xMax = width + 40;
-				const x = Phaser.Math.Between(xMin, xMax);
-
-				const y = Phaser.Math.Between(-140, 20);
-
-				const o = this.obstacles.create(x, y, 'chikuwa')
+				// 出現位置：画面右外、高さはランダム（ただし地面すれすれは避ける）
+				const yMin = height - 250;
+				const yMax = height - 100;
+				const y = Phaser.Math.Between(yMin, yMax);
+				
+				const o = this.obstacles.create(width + 50, y, 'chikuwa')
 					.setScale(0.12)
 					.setOrigin(0.5, 0.5);
 
 				o.setData('type', 'chikuwa');
-				o.body.setAllowGravity(true);
-				o.setGravityY(600);
 
-				o.setVelocityX(Phaser.Math.Between(-120, -60));
-				o.setVelocityY(Phaser.Math.Between(50, 100));
-				o.setBounce(0.2);
+				// 重力を無効にする
+				o.body.setAllowGravity(false);
+				
+				// 左へ一定速度で飛ぶ
+				o.setVelocityX(-180); 
+
+				// 回転アニメーション（くるくる回る）
+				this.tweens.add({
+					targets: o,
+					angle: -360, // 左回転
+					duration: 800,
+					repeat: -1
+				});
+
+				// 上下にふわふわ波打つ動き（サインカーブ的挙動）
+				// 振れ幅(delta)は50〜80くらい
+				const delta = 70;
+				
+				// 最初に「上」に行くか「下」に行くかをランダムに
+				const startUp = Phaser.Math.Between(0, 1) === 0;
+				const firstY = startUp ? y - delta : y + delta;
+
+				this.tweens.add({
+					targets: o,
+					y: firstY,
+					duration: 1000, // 1秒かけて移動
+					yoyo: true,     // 行って戻る
+					repeat: -1,     // 無限
+					ease: 'Sine.easeInOut' // 滑らかな動き
+				});
 			});
 		};
 
 		spawnOne();
 
-		// 30%で2連
-		if (Phaser.Math.Between(0, 100) < 30) {
-			spawnOne(120);
+		// たまに2個目をずらして出す（連隊攻撃）
+		if (Phaser.Math.Between(0, 100) < 40) {
+			spawnOne(600); // 0.6秒後に追撃
 		}
 	}
-
 	// きんちゃく（mochi）：右側ランダム位置から落下＋左へ流れる
 	spawnMochi() {
 		const { width } = this.scale;
-		const x = Phaser.Math.Between(this.player.x + 120, width + 40);
+		const x = Phaser.Math.Between(width * 0.5, width - 40);
 		const o = this.obstacles.create(x, -40, 'mochi')
 			.setScale(0.1);
 		o.setData('type', 'mochi');
@@ -643,10 +669,13 @@ export class Stage4 extends BaseStage {
 					loopDelay: 2000 // 定位置に戻ったら2秒休む
 				});
 
+                //到着と同時にまず一発撃つ
+                this.fireBossBullets();
+
 				// 動き3「大根おろしショット」発射タイマー
 				// 2秒ごとに3Way弾を撃ってくる
 				this.bossAttackEvent = this.time.addEvent({
-					delay: 3000, // 3秒間隔
+					delay: 2000, // 2秒間隔
 					loop: true,
 					callback: () => {
 						// ボスが生きていて、かつゲーム中でなければ撃たない
