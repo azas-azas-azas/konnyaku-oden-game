@@ -28,7 +28,7 @@ export class Stage4 extends BaseStage {
 		this.invincibleUntil = 0;
 
 		// ★デバッグ用：無敵モード
-		this.damageEnabled = false;
+		this.damageEnabled = true;
 
 		// ボス管理用
 		this.boss = null;
